@@ -52,7 +52,7 @@ export default function GameIntroPage() {
   const [skipIntro, setSkipIntro] = useState<boolean>(false); // если уже смотрели — не показываем
 
   const socketRef = useRef<Socket | null>(null);
-  const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4000';
+  // const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4000';
   const myClientId = getClientId();
 
   // Сохраняем комнату в LS, чтобы ре-джойн после F5 был гарантирован
@@ -103,7 +103,7 @@ useEffect(() => {
   useEffect(() => {
     if (skipIntro) return;
 
-    const s = getSocket(wsUrl);
+    const s = getSocket();
     socketRef.current = s;
 
     const joinAndSync = () => {
@@ -129,7 +129,7 @@ useEffect(() => {
     return () => {
       s.off('connect', joinAndSync);
     };
-  }, [wsUrl, roomId, myClientId, skipIntro]);
+  }, [roomId, myClientId, skipIntro]);
 
   // таймер автоперехода (НЕ запускаем в preview-режиме)
   useEffect(() => {
