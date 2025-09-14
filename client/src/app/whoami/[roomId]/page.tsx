@@ -48,7 +48,7 @@ export default function WhoAmIPage() {
   const [publicPlayers, setPublicPlayers] = useState<PublicPlayer[]>([]);
 
   const socketRef = useRef<Socket | null>(null);
-  const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4000';
+  // const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4000';
 
   // ник
   useEffect(() => {
@@ -66,7 +66,7 @@ export default function WhoAmIPage() {
   useEffect(() => {
     if (!nick) return;
 
-    const s = getSocket(wsUrl);
+    const s = getSocket();
     socketRef.current = s;
 
     const joinAndSync = () => {
@@ -105,7 +105,7 @@ export default function WhoAmIPage() {
       s.off('game:state', onGameState);
       s.off('game:you', onGameYou);
     };
-  }, [wsUrl, roomId, nick]);
+  }, [roomId, nick]);
 
   // открыть только одну характеристику (trait)
   const revealTrait = () =>
