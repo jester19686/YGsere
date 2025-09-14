@@ -1,0 +1,10 @@
+﻿**/node_modules
+client/.next
+# logs
+npm-debug.log*
+yarn-error.log*
+# env
+.env
+.env.*
+SERVER/.env
+client/.env.production

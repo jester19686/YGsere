@@ -1,0 +1,240 @@
+/* === БАЗА: дефолтные токены (Amber) === */
+html, body { min-height: 100%; }
+:root {
+
+    
+  /* Цвета */
+  --c-bg: #0b0b0f;
+  --c-text: #e5e7eb;
+  --c-card: rgba(255,255,255,0.03);
+  --c-border: rgba(255,255,255,0.10);
+  --c-accent: #f59e0b;
+
+  /* Шрифты */
+  --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-display: "Cinzel", Georgia, serif;
+
+  /* Кнопки / карточки (объём/свечение) */
+  --btn-text: #0b0b0f;
+  --btn-fill: var(--c-accent);
+  --btn-fill-hover: #ffb224;
+  --btn-outline: rgba(245,158,11,.35);
+  --btn-emboss-top: rgba(255,255,255,.14);
+  --btn-emboss-bottom: rgba(0,0,0,.55);
+  --btn-shadow: 0 6px 18px rgba(0,0,0,.35);
+  --card-shadow: 0 10px 28px rgba(0,0,0,.28);
+
+  /* Фон: градиенты + шум */
+  --bg-spot: rgba(245,158,11,.10);
+  --bg-spot-2: rgba(245,158,11,.06);
+  --bg-noise-opacity: .08;
+
+  /* Текстуры (можно заменить на url('/textures/...')) */
+  --bg-texture: radial-gradient(2000px 900px at 70% -10%, var(--bg-spot) 0%, transparent 55%),
+                radial-gradient(1200px 700px at 10% 110%, var(--bg-spot-2) 0%, transparent 60%);
+  /* Встроенный шум (data-URI, 64x64 png) */
+  --bg-noise: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEEAAABBAQMAAAB7m5bHAAAABlBMVEUAAAD///+l2Z/dAAAAF0lEQVQY02NgGAWDEQ0YpQwGQyE0GAAAH38T3m9xNnUAAAAASUVORK5CYII=");
+
+  /* ✅ ДОБАВЛЕНО: внешние текстуры (дефолт = волны) */
+  --tx-bg: none;      /* не запрашивать внешний фон, пока файла нет */
+--tx-noise: none;   /* не запрашивать внешний шум, пока файла нет */
+
+  /* Металлическая палитра (по умолчанию для amber) */
+  --btn-face: #4a361c;      /* верх кнопки (металл) */
+  --btn-face-2: #2f2315;    /* низ/тень */
+  --btn-edge: #b7883a;      /* кромка/кант */
+  --btn-glow: #ffd88a;      /* мягкий блик */
+}
+
+/* === 1) Стандартная Amber === */
+[data-theme="amber"] {
+  --c-bg: #0b0b0f;
+  --c-text: #e5e7eb;
+  --c-card: rgba(255,255,255,0.03);
+  --c-border: rgba(255,255,255,0.10);
+  --c-accent: #f59e0b;
+
+  --btn-text: #0b0b0f;
+  --btn-fill: #f59e0b;
+  --btn-fill-hover: #ffb224;
+  --btn-outline: rgba(245,158,11,.35);
+  --btn-emboss-top: rgba(255,255,255,.14);
+  --btn-emboss-bottom: rgba(0,0,0,.55);
+
+  --bg-spot: rgba(245,158,11,.10);
+  --bg-spot-2: rgba(245,158,11,.06);
+  --bg-noise-opacity: .08;
+  --bg-texture: radial-gradient(2000px 900px at 70% -10%, var(--bg-spot) 0%, transparent 55%),
+                radial-gradient(1200px 700px at 10% 110%, var(--bg-spot-2) 0%, transparent 60%);
+
+  /* ✅ текстуры и металл для amber */
+  --tx-bg: none;
+  --tx-noise: none;
+  --btn-face: #4a361c;
+  --btn-face-2: #2f2315;
+  --btn-edge: #b7883a;
+  --btn-glow: #ffd88a;
+}
+
+/* === 2) LOBBY THEME (индиго-фиолетовое лобби) === */
+[data-theme="lobby"] {
+  /* Базовые токены под индиго/эмералд палитру */
+  --c-bg: #0d0d1a;
+  --c-text: #e5e7eb;
+  --c-card: rgba(255,255,255,0.06);           /* стекло чуть плотнее */
+  --c-border: rgba(255,255,255,0.10);
+  --c-accent: #6366f1;                        /* indigo-500 */
+
+  /* Кнопки/карточки */
+  --btn-text: #0b0b0f;
+  --btn-fill: var(--c-accent);
+  --btn-fill-hover: #818cf8;
+  --btn-outline: rgba(99,102,241,.45);
+  --btn-emboss-top: rgba(255,255,255,.18);
+  --btn-emboss-bottom: rgba(0,0,0,.55);
+  --btn-shadow: 0 10px 26px rgba(0,0,0,.45);
+  --card-shadow: 0 14px 34px rgba(0,0,0,.40);
+
+  /* Фоновые «пятна» как в макете лобби */
+  --bg-spot: rgba(99,102,241,.14);
+  --bg-spot-2: rgba(16,185,129,.12);          /* emerald soft */
+  --bg-noise-opacity: .10;
+
+  /* волны + градиентные пятна */
+  --tx-bg: none;
+  --tx-noise: none;
+  --bg-texture:
+    radial-gradient(800px 800px at 70% 0%, var(--bg-spot) 0%, transparent 70%),
+    radial-gradient(900px 900px at 0% 100%, var(--bg-spot-2) 0%, transparent 70%);
+}
+
+/* ───────────────────────────────────────────────────────────── */
+/* ✅ Утилитарные классы, которые «потребляют» токены тем */
+/* Подключены на странице; не конфликтуют с Tailwind */
+
+/* (УДАЛЕНО rust-оформление) */
+
+/* Металлическая кнопка (объёмная кромка) */
+.metal-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--btn-edge);
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  color: var(--c-text);
+  background: linear-gradient(180deg, var(--btn-face) 0%, var(--btn-face-2) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    inset 0 -2px 0 var(--btn-emboss-bottom),
+    0 0 0 1px rgba(0,0,0,.25),
+    0 12px 22px rgba(0,0,0,.45);
+  transition: transform .06s ease, filter .12s ease, box-shadow .12s ease;
+}
+.metal-btn:hover { filter: brightness(1.06); }
+.metal-btn:active { transform: translateY(1px); }
+
+/* Вариант «акцент» — как в лобби (индиго) */
+.metal-btn--action {
+  color: #0b0b0f;
+  text-shadow: 0 1px 0 rgba(255,255,255,.35);
+  border-color: color-mix(in lab, var(--c-accent) 62%, black);
+  background: linear-gradient(
+    180deg,
+    color-mix(in lab, var(--c-accent) 92%, black) 0%,
+    color-mix(in lab, var(--c-accent) 66%, black) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.25),
+    inset 0 -2px 0 rgba(0,0,0,.5),
+    0 0 14px 2px color-mix(in lab, #8ea2ff 42%, transparent),
+    0 12px 26px rgba(0,0,0,.5);
+}
+
+/* Вариант «Открыто» (зелёная сталь) */
+.metal-btn--ok {
+  color: #e9ffee;
+  border-color: #3fa34d;
+  background: linear-gradient(180deg,#2a5f32 0%, #1f4a27 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    inset 0 -2px 0 rgba(0,0,0,.55),
+    0 10px 22px rgba(0,0,0,.45);
+}
+
+/* «Стеклянная» карточка/панель */
+.rust-panel {
+  background-color: var(--c-card);
+  border: 1px solid var(--c-border);
+  box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter: blur(2px);
+}
+
+/* Таблица в стиле «металл/стекло» */
+.table-metal thead {
+  background: color-mix(in oklab, var(--c-card) 85%, black);
+}
+.table-metal th, .table-metal td {
+  border-color: var(--c-border);
+}
+
+/* Кнопка «старого» вида, чтобы не ломать текущие места */
+.themed-btn {
+  color: var(--btn-text);
+  border: 1px solid var(--btn-outline);
+  background: linear-gradient(180deg, var(--btn-fill) 0%, color-mix(in lab, var(--btn-fill) 70%, black) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--btn-emboss-top),
+    inset 0 -2px 0 var(--btn-emboss-bottom),
+    var(--btn-shadow);
+  transition: filter .12s ease, transform .06s ease;
+}
+.themed-btn:hover { filter: brightness(1.04); }
+.themed-btn:active { transform: translateY(1px); }
+
+/* ───────────────────────────────────────────────────────────── */
+/* ✅ Универсальный полноэкранный фон для ЛЮБОЙ темы (как в лобби).
+   Работает, если на <body> есть класс .theme-bg */
+.theme-bg {
+  position: relative;
+  background-color: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-ui);
+}
+
+/* Слой с волнами + градиентные пятна на весь вьюпорт */
+.theme-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image: var(--tx-bg, none), var(--bg-texture);
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  opacity: .45; /* как визуально в лобби */
+}
+
+/* Слой шум + лёгкая виньетка по краям */
+.theme-bg::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    var(--tx-noise); /* мелкий шум */
+  background-size: 512px 512px;
+  background-position: 0 0;
+  background-repeat: repeat;
+  mix-blend-mode: soft-light;
+  opacity: var(--bg-noise-opacity);
+}
+
+/* Мобилки — чуть слабее эффекты */
+@media (max-width: 640px) {
+  .theme-bg::after { opacity: calc(var(--bg-noise-opacity) * .85); }
+}
+
+main[data-theme] {
+  background: transparent !important;
+}
