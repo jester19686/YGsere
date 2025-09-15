@@ -23,7 +23,7 @@ type RoomStatePayload = {
   hostId: string | null;
   started: boolean;
   maxPlayers: number;
-  game?: 'bunker' | 'whoami';
+  game?: 'bunker';
   players: PresencePlayer[];
 };
 
