@@ -1,47 +1,49 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
-import type { ChangeEvent, KeyboardEvent } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useRouter } from 'next/navigation';
 
-const LS_NICK = 'bunker:nick';
 
-export default function AuthPage() {
+
+export default function AuthClient() {
   const router = useRouter();
-  const search = useSearchParams();
-  const rawNext = search?.get('next') || '/';
-
-  // если в query передали /auth, игнорируем — вернёмся на главную
-  const next = rawNext === '/auth' ? '/' : rawNext;
+  
 
   const [nickInput, setNickInput] = useState('');
+  const [nextPath, setNextPath] = useState('/lobby');
 
+  // Подтянуть ник из LS при маунте
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(LS_NICK);
-      if (saved && saved.trim()) {
-        router.replace(next);
-      }
+      const saved = localStorage.getItem('bunker:nick');
+      if (saved) setNickInput(saved);
     } catch {}
-  }, [router, next]);
+  }, []);
+
+  // Без useSearchParams: читаем ?next=... из window.location
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      const raw = url.searchParams.get('next') || '/lobby';
+      setNextPath(raw === '/auth' ? '/lobby' : raw);
+    } catch {
+      setNextPath('/lobby');
+    }
+  }, []);
 
   const confirmNick = () => {
     const v = nickInput.trim();
-    if (!v) {
-      alert('Введите ник');
-      return;
-    }
-    try {
-      localStorage.setItem(LS_NICK, v);
-    } catch {}
-    router.replace(next);
+    if (!v) return;
+    try { localStorage.setItem('bunker:nick', v); } catch {}
+    router.replace(nextPath);
   };
 
   return (
-  <Suspense fallback={<div className="rust-panel p-3 text-center">Загрузка…</div>}>
-    <main className="min-h-[100dvh] relative flex items-center justify-center
-                     bg-gradient-to-b from-[#0d0d1a] via-[#111133] to-black
-                     bg-radial-glow bg-vignette">
+    <main
+      className="min-h-[100dvh] relative flex items-center justify-center
+                 bg-gradient-to-b from-[#0d0d1a] via-[#111133] to-black
+                 bg-radial-glow bg-vignette"
+    >
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[url('/bg_waves.png')]
@@ -77,7 +79,5 @@ export default function AuthPage() {
         </div>
       </div>
     </main>
-  </Suspense>
-);
-  
+  );
 }
