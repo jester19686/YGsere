@@ -4,13 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Socket } from 'socket.io-client';
 import { getSocket, getClientId } from '@/lib/socket'; // 👈 добавили getClientId
-// База для REST API сервера: env или текущий хост
-const API_BASE =
+// База для REST API: env или локальный fallback на порт 4000
+const RAW_API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.host}`
-    : '');
-
+    ? `${window.location.protocol}//${window.location.hostname}:4000`
+    : 'http://localhost:4000');
+// убираем хвостовые слэши, чтобы не было //rooms
+const API_BASE = RAW_API_BASE.replace(/\/+$/, '');
+// корректно склеиваем
+const api = (path: string) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 type UIMode = 'idle' | 'create' | 'join';
@@ -83,8 +86,7 @@ export default function LobbyPage() {
   const redirectOnceRef = useRef(false);
   const stayInLobbyRef = useRef(false);
 
-  // const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4000'; // больше не нужен
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+  // const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:4000'; // не используется
 
   // 👇 состояние «Активных комнат»
   const [activeRooms, setActiveRooms] = useState<ActiveRoom[]>([]);
@@ -183,7 +185,7 @@ useEffect(() => {
     (async () => {
       try {
         setRoomsLoading(true);
-        const res = await fetch(`${API_BASE}/rooms`);
+        const res = await fetch(api('/rooms'));
         const data = await res.json().catch(() => ({ rooms: [] }));
         if (!canceled) {
           setActiveRooms(Array.isArray(data.rooms) ? data.rooms : []);
@@ -197,7 +199,7 @@ useEffect(() => {
     return () => {
       canceled = true;
     };
-  }, [apiUrl]);
+  }, []);
 
   useEffect(() => {
     const s = getSocket();
@@ -453,7 +455,9 @@ useEffect(() => {
   const createLobby = async () => {
     if (!isNickSet) { showNotice('Сначала подтвердите ник', undefined, 'error'); return; }
     try {
-      const res = await fetch(`${API_BASE}/rooms`, {
+      const url = api('/rooms');
+      console.debug('[createLobby] POST', url);
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ maxPlayers, game: gameType, open: openLobby }), // 👈 ПЕРЕДАЁМ open
@@ -477,6 +481,10 @@ useEffect(() => {
       setUiMode('idle');
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
+      if (message === 'Failed to fetch') {
+        console.error('[createLobby] Network error. API_BASE =', API_BASE);
+        console.error('Проверь, что сервер на 4000 запущен и URL доступен напрямую из браузера.');
+      }
       showNotice('Не удалось создать лобби', message, 'error');
     }
   };
@@ -677,7 +685,7 @@ useEffect(() => {
   };
 
   const ClassicLayout = () => (
-    <div className={`grid gap-6 ${currentRoom ? 'md:grid-cols-2' : ''}`}>
+    <div className={`grid-cols-6 ${currentRoom ? 'md:grid-cols-2' : ''}`}>
       <div>
         <h2 className="font-semibold mb-2">Лобби</h2>
 
@@ -769,7 +777,7 @@ useEffect(() => {
             <div className="text-sm text-gray-400 mb-2">Войти по коду</div>
             <input
               ref={joinInputRef}
-              className="border p-2 rounded w-full mb-2 bg-transparent"
+              className="border p-2 rounded w-full min-w-0 mb-2 bg-transparent"
               placeholder="Код лобби"
               value={room}
               onChange={(e) => setRoom(e.target.value.toUpperCase())}
@@ -955,10 +963,10 @@ useEffect(() => {
                 Действия
               </div>
               <div className="space-y-2 mb-6">
-                <button onClick={() => setUiMode('create')} className="btn-primary w-full py-3">
+                <button onClick={() => setUiMode('create')} className="btn-primary w-full min-w-0 py-3">
                   Создать лобби
                 </button>
-                <button onClick={() => setUiMode('join')} className="btn-secondary w-full py-3">
+                <button onClick={() => setUiMode('join')} className="btn-secondary w-full min-w-0 py-3">
                   Войти в лобби
                 </button>
               </div>
@@ -973,7 +981,7 @@ useEffect(() => {
                 <select
                   value={gameType}
                   onChange={(e) => setGameType(e.target.value as 'bunker' | 'whoami')}
-                  className="mt-1 mb-3 w-full border rounded p-2 bg-transparent"
+                  className="mt-1 mb-3 w-full min-w-0 border rounded p-2 bg-transparent"
                 >
                   <option value="bunker">Бункер</option>
                   <option value="whoami">Кто я?</option>
@@ -1022,7 +1030,7 @@ useEffect(() => {
               <div className="rounded border border-white/10 p-3 mb-6">
                 <input
                   ref={joinInputRef}
-                  className="border p-2 rounded w-full mb-2 bg-transparent"
+                  className="border p-2 rounded w-full min-w-0 mb-2 bg-transparent"
                   placeholder="Код лобби"
                   value={room}
                   onChange={(e) => setRoom(e.target.value.toUpperCase())}
@@ -1084,13 +1092,13 @@ useEffect(() => {
       {/* весь контент поверх фона */}
       <div className="relative z-10">
         {/* Шапка фиксированной ширины */}
-        <div className="px-6 w-full max-w-6xl mx-auto">
+        <div className="px-6 w-full min-w-0 max-w-6xl mx-auto">
           <TopBar />
         </div>
 
         {/* Центрируем контент и сдвигаем чуть вверх */}
         <div className="flex items-start pt-[12vh]">
-          <div className="w-full max-w-6xl mx-auto px-6 overflow-x-hidden">
+          <div className="w-full min-w-0 max-w-6xl mx-auto px-6 overflow-x-hidden">
             <div className="absolute -z-10 -top-12 -left-20 w-72 h-72 rounded-full blur-3xl opacity-30 bg-indigo-700/40" />
             <div className="absolute -z-10 -bottom-16 -right-24 w-80 h-80 rounded-full blur-3xl opacity-25 bg-emerald-600/40" />
             {layoutMode === 'sidebar' ? <SidebarLayout /> : <ClassicLayout />}

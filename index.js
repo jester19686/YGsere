@@ -70,7 +70,7 @@ const allow = (process.env.FRONT_ORIGIN || 'http://localhost:3000')
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   // Эхо-режим: если браузер прислал Origin — всегда отражаем его (OK для dev)
-  if (origin) {
+  if (origin && (!allow.length || allow.includes(origin))) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Credentials', 'true');

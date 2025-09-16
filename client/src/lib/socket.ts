@@ -65,14 +65,9 @@ type CryptoLike = {
 };
 
 if (typeof window !== 'undefined') {
-  socket ??= io(WS_URL, {
-    path: '/socket.io',
-    transports: ['websocket'],
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 500,
-  });
-}
+   // единая точка создания с auth: { clientId }
+   try { getSocket(); } catch {}
+ }
 function getCryptoLike(): CryptoLike | undefined {
   try {
     const c = (globalThis as unknown as { crypto?: unknown }).crypto;
