@@ -1,6 +1,7 @@
 /* Tailwind v4 подключается одной строкой */
 @import "tailwindcss";
 
+
 /* Базовые переменные цветов (тёмная тема по умолчанию) */
 :root {
   --bg: #0a0a0a;        /* фон */
@@ -21,8 +22,14 @@
   }
 }
 
+
+/* Убрать “мигание” при тапе на iOS/Android */
+* { -webkit-tap-highlight-color: transparent; }
+
+
 html, body, #__next {
   height: 100%;
+  overflow-x: hidden; /* 👈 добавь */
 }
 
 /* Базовые стили страницы + атмосферный фон */
@@ -258,3 +265,28 @@ main[data-theme="rust"]{
 main[data-theme] {
   background: transparent !important;
 }
+
+/* Безопасные зоны для вырезов (iPhone и др.) */
+:root {
+  --safe-top: env(safe-area-inset-top);
+  --safe-right: env(safe-area-inset-right);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
+}
+
+body {
+  padding-top: var(--safe-top);
+  padding-right: var(--safe-right);
+  padding-bottom: var(--safe-bottom);
+  padding-left: var(--safe-left);
+  overscroll-behavior-y: contain; /* меньше “рывков” при скролле */
+}
+input, textarea, button, select {
+  font-size: 16px;
+}
+
+/* Умный vh для мобилок */
+.min-h-100dvh { min-height: 100dvh; }
+
+
+
