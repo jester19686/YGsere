@@ -1,12 +1,26 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class', // по желанию
   content: [
-    './src/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './pages/**/*.{js,ts,jsx,tsx,mdx}', // если вдруг используется
+    './hooks/**/*.{js,ts,jsx,tsx}',
+    './lib/**/*.{js,ts,jsx,tsx}',
+    './**/*.{ts,tsx}', // на всякий случай
   ],
   theme: {
-    extend: {},
+    container: { center: true, padding: '1rem' }, // мобильный контейнер
+    extend: {
+      // мелкие улучшения UX на мобилке
+      borderRadius: { 'xl': '0.75rem', '2xl': '1rem' },
+      spacing: { 'safe-b': 'env(safe-area-inset-bottom)' }, // для вырезов
+    },
   },
-  plugins: [],
+  plugins: [
+    // удобные плагины (по желанию):
+    // require('@tailwindcss/forms'),
+    // require('@tailwindcss/typography'),
+    // require('@tailwindcss/line-clamp'),
+  ],
 };
