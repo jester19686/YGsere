@@ -1,16 +1,13 @@
 'use client';
 
 import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from 'react';
-import { useRouter } from 'next/navigation';
-
-
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function AuthClient() {
   const router = useRouter();
-  
+  const sp = useSearchParams();
 
   const [nickInput, setNickInput] = useState('');
-  const [nextPath, setNextPath] = useState('/lobby');
 
   // Подтянуть ник из LS при маунте
   useEffect(() => {
@@ -20,16 +17,9 @@ export default function AuthClient() {
     } catch {}
   }, []);
 
-  // Без useSearchParams: читаем ?next=... из window.location
-  useEffect(() => {
-    try {
-      const url = new URL(window.location.href);
-      const raw = url.searchParams.get('next') || '/lobby';
-      setNextPath(raw === '/auth' ? '/lobby' : raw);
-    } catch {
-      setNextPath('/lobby');
-    }
-  }, []);
+  // Если нужен токен/next из query — они доступны здесь
+  const nextPath = sp.get('next') || '/lobby';
+  // const token = sp.get('token'); // если используется — разкомментируй
 
   const confirmNick = () => {
     const v = nickInput.trim();

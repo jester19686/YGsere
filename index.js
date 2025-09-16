@@ -23,11 +23,11 @@ const origins = (process.env.FRONT_ORIGIN || '')
   .map(s => s.trim())
   .filter(Boolean);
 
-app.use(cors({
-  origin: origins.length ? origins : true,     // dev: true (отражает пришедший Origin)
-  credentials: origins.length > 0,             // credentials только если origin фиксированный
-}));
-app.use(express.json());
+//app.use(cors({
+ // origin: origins.length ? origins : true,     // dev: true (отражает пришедший Origin)
+  //credentials: origins.length > 0,             // credentials только если origin фиксированный
+//}));
+
 
 // ===== In-memory состояние =====
 /**
@@ -59,6 +59,38 @@ app.get('/health', (_req, res) => res.send('ok'));
 
 // === In-memory rate-limit по IP для POST /rooms ===
 const createRoomRate = new Map();
+
+
+// ✅ ЕДИНСТВЕННЫЙ CORS до всех роутов
+const allow = (process.env.FRONT_ORIGIN || 'http://localhost:3000')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  // Эхо-режим: если браузер прислал Origin — всегда отражаем его (OK для dev)
+  if (origin && (!allow.length || allow.includes(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else if (!allow.length) {
+    // без Origin и без явно заданного списка — открываем для всех (без credentials)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  // Всегда добавляем базовые заголовки + запрошенные
+  const reqHdrs = req.header('Access-Control-Request-Headers');
+  const baseHdrs = 'Content-Type, Authorization';
+  res.setHeader('Access-Control-Allow-Headers', reqHdrs ? `${baseHdrs}, ${reqHdrs}` : baseHdrs);
+  res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  // Optional: кэш preflight
+  // res.setHeader('Access-Control-Max-Age', '86400');
+
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
+app.use(express.json());
 
 function getClientIp(req) {
   const xfwd = req.headers['x-forwarded-for'];
@@ -896,13 +928,10 @@ app.post('/rooms', (req, res) => {
 
 // ===== WS =====
 const server = http.createServer(app);
+// Инициализация Socket.IO с теми же CORS
 const io = new Server(server, {
-  // путь по умолчанию /socket.io — оставляем
-  cors: {
-    // в проде лучше указать домен, на подготовке оставим гибко
-    origin: process.env.FRONT_ORIGIN || true,
-    credentials: true,
-  },
+  // для дев-сборки разрешаем любой Origin (браузер всё равно шлёт реальный)
+  cors: { origin: true, credentials: true },
 });
 ioRef = io;
 

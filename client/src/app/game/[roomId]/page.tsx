@@ -1500,7 +1500,8 @@ return (
   className="rounded-lg border overflow-visible relative"
   style={{ borderColor: 'var(--c-border)' }}
 >
-  <table className="w-full table-fixed text-sm table-metal">
+  
+  <table className="min-w-[800px] w-full table-fixed text-sm table-metal">
     <thead>
       <tr className="text-left">
         <th className="px-4 py-3 w-[220px] whitespace-normal break-words min-w-0 overflow-hidden">Имя</th>
@@ -1721,6 +1722,7 @@ return (
       )}
     </tbody>
   </table>
+   
 </div>
 
 
@@ -1921,10 +1923,10 @@ return (
 
 {gameOver && cleanupAt && (
      <div
-          className="fixed left-1/2 top-[16.666%] -translate-x-1/2 z-[9999] px-6 sm:px-8 py-5 sm:py-6 rounded-xl border shadow-xl cursor-pointer"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-6 sm:px-8 py-5 sm:py-6 rounded-xl border shadow-xl"
           style={{
             background: 'var(--c-card), #0f172a',
-            borderColor: '#ef4444' // красная рамка
+            borderColor: 'var(--c-border)' // красная рамка
          }}
       role="status"
       aria-live="polite"

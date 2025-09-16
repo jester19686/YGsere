@@ -266,6 +266,18 @@ main[data-theme] {
   background: transparent !important;
 }
 
+
+/* убираем подсветку тапов на iOS/Android */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* чуть крупнее «по умолчанию» на мобильных для кликабельных элементов */
+button, [role="button"], input, select, textarea, a {
+  touch-action: manipulation;
+}
+
+
 /* Безопасные зоны для вырезов (iPhone и др.) */
 :root {
   --safe-top: env(safe-area-inset-top);
