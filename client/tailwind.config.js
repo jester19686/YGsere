@@ -1,26 +1,55 @@
 /** @type {import('tailwindcss').Config} */
+/* eslint-disable @typescript-eslint/no-require-imports */
 module.exports = {
-  darkMode: 'class', // по желанию
   content: [
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './pages/**/*.{js,ts,jsx,tsx,mdx}', // если вдруг используется
-    './hooks/**/*.{js,ts,jsx,tsx}',
-    './lib/**/*.{js,ts,jsx,tsx}',
-    './**/*.{ts,tsx}', // на всякий случай
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-    container: { center: true, padding: '1rem' }, // мобильный контейнер
+    // Удобный контейнер "из коробки"
+    container: {
+      center: true,
+      padding: {
+        DEFAULT: '1rem',   // мобилка
+        sm: '1.25rem',
+        md: '1.5rem',
+        lg: '2rem',
+        xl: '2.5rem',
+        '2xl': '3rem',
+      },
+    },
     extend: {
-      // мелкие улучшения UX на мобилке
-      borderRadius: { 'xl': '0.75rem', '2xl': '1rem' },
-      spacing: { 'safe-b': 'env(safe-area-inset-bottom)' }, // для вырезов
+      // Можешь настроить цвет темы здесь, если используешь meta theme-color
+      colors: {
+        brand: {
+          DEFAULT: '#2563eb',
+          dark: '#1e3a8a',
+        },
+      },
+      // Гладкие тени и скругления, приятные на телефоне
+      borderRadius: {
+        'xl': '1rem',
+        '2xl': '1.25rem',
+      },
+      boxShadow: {
+        soft: '0 8px 20px rgba(0,0,0,0.12)',
+      },
+      // Оптимальные точки перелома можно оставить дефолтные; добавлю sm-only
+      screens: {
+        'xs': '380px',
+      },
     },
   },
+  // Полезные плагины: формы (нормализует инпуты), типографика (prose), лайн-кламп
   plugins: [
-    // удобные плагины (по желанию):
-    // require('@tailwindcss/forms'),
-    // require('@tailwindcss/typography'),
-    // require('@tailwindcss/line-clamp'),
+    require('@tailwindcss/forms'),
+    require('@tailwindcss/typography'),
+    require('@tailwindcss/line-clamp'),
+  ],
+  // Вдруг генерируешь классы динамически — подсейвим пару часто нужных
+  safelist: [
+    'snap-x', 'snap-mandatory', 'snap-start',
+    'prose', 'prose-sm', 'line-clamp-2', 'line-clamp-3',
   ],
 };
