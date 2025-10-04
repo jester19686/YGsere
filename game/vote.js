@@ -125,9 +125,20 @@ function finishBallot(room, io) {
     dependencies.checkGameOver(room);
   }
   
-  // Если игра не закончилась, переходим к следующему ходу
-  if (!room.gameOver && dependencies.advanceTurn) {
-    dependencies.advanceTurn(room);
+  // Если игра не закончилась, переходим к следующему раунду
+  if (!room.gameOver) {
+    // Переход к следующему раунду
+    if (dependencies.advanceRound) {
+      dependencies.advanceRound(room);
+    }
+    // Обновляем информацию о раунде
+    if (dependencies.emitRoundState) {
+      dependencies.emitRoundState(room);
+    }
+    // Начинаем новый ход
+    if (dependencies.advanceTurn) {
+      dependencies.advanceTurn(room);
+    }
   }
 }
 

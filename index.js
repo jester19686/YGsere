@@ -25,6 +25,7 @@ voteMod.setDependencies({
   checkGameOver,
   emitGameState,
   ensureRoundState: rounds.ensureRoundState,
+  advanceRound: rounds.advanceRound,
   emitRoundState,
   beginTurn,
   scheduleVoteTick: timers.scheduleVoteTick,
