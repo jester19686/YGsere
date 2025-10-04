@@ -1,6 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import type React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import dynamic from 'next/dynamic';
+const TopBar = dynamic(() => import('./components/TopBar'), { ssr: false });
+const PlayerInfoBar = dynamic(() => import('./components/PlayerInfoBar'), { ssr: false });
+const ActiveRoomsSection = dynamic(() => import('./components/ActiveRoomsSection'), { ssr: false });
+const PlayersSection = dynamic(() => import('./components/PlayersSection'), { ssr: false });
+const FormModal = dynamic(() => import('./components/FormModal'), { ssr: false });
+import AuthModal from '@/components/AuthModal';
 import { useRouter } from 'next/navigation';
 import type { Socket } from 'socket.io-client';
 import { getSocket, getClientId } from '@/lib/socket'; // 👈 добавили getClientId
@@ -19,7 +28,7 @@ type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 type UIMode = 'idle' | 'create' | 'join';
 
 /** 👇 добавили seat для стабильного порядка игроков */
-type PresencePlayer = { id: string; nick: string; seat?: number };
+type PresencePlayer = { id: string; nick: string; seat?: number; avatarUrl?: string | null };
 type PresencePayload = { roomId: string; players: PresencePlayer[]; maxPlayers?: number };
 type RoomStatePayload = {
   roomId: string;
@@ -44,7 +53,6 @@ type ActiveRoom = {
 const LS_NICK = 'bunker:nick';
 const LS_ROOM = 'bunker:lastRoom';
 const LS_STAY_LOBBY = 'bunker:stayInLobby';
-const LS_SHOW_LOGS = 'bunker:showLogs';
 const LS_INTRO_SHOWN = 'bunker:introShown';
 const LS_AUTORUN_DONE = 'bunker:autoRedirectDone'; // пер-ключ, дальше дополним :roomId
 
@@ -57,11 +65,11 @@ export default function LobbyPage() {
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [uiMode, setUiMode] = useState<UIMode>('idle');
 
-  // макет: classic | sidebar
-  const [layoutMode, setLayoutMode] = useState<'classic' | 'sidebar'>('sidebar');
+  
 
-  // ник
+  // ник и аватар
   const [nick, setNick] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isNickSet, setIsNickSet] = useState(false);
 
   // 👇 ДОБАВЛЕНО: флаг завершения проверки localStorage (чтобы не редиректить раньше времени)
@@ -92,8 +100,7 @@ export default function LobbyPage() {
   const [activeRooms, setActiveRooms] = useState<ActiveRoom[]>([]);
   const [roomsLoading, setRoomsLoading] = useState<boolean>(true);
 
-  // логи выключены по умолчанию
-  const [showLogs, setShowLogs] = useState<boolean>(false);
+  
   // ▼ Уведомление-виджет (внизу по центру)
   const [notice, setNotice] = useState<{ top: string; bottom?: string; kind?: 'info'|'error'|'success' } | null>(null);
   const noticeTimerRef = useRef<number | undefined>(undefined);
@@ -129,7 +136,7 @@ useEffect(() => {
   try {
     const savedRoom = localStorage.getItem(LS_ROOM);
     if (savedRoom) {
-      s.emit('joinRoom', { roomId: savedRoom, nick, clientId: getClientId() });
+      s.emit('joinRoom', { roomId: savedRoom, nick, clientId: getClientId(), avatarUrl });
       s.emit('room:getState', { roomId: savedRoom });
     }
   } catch {}
@@ -154,30 +161,48 @@ useEffect(() => {
       setNick(saved);
       setIsNickSet(true);
     }
-    // 👇 отмечаем, что проверка localStorage завершена
+    try {
+      const av = typeof window !== 'undefined' ? window.localStorage.getItem('bunker:avatar') : null;
+      if (av) setAvatarUrl(av);
+    } catch {}
+    // авто-подхват auth из query
+    try {
+      const url = new URL(window.location.href);
+      const auth = url.searchParams.get('auth');
+      if (auth) {
+        // поллинг подтверждения, чтобы не ждать ручного обновления
+        const RAW_API_BASE =
+          process.env.NEXT_PUBLIC_API_URL || `${window.location.protocol}//${window.location.hostname}:4000`;
+        const API_BASE = RAW_API_BASE.replace(/\/+$/, '');
+        (async () => {
+          try {
+            const s = await fetch(`${API_BASE}/api/auth/tg/otp/status?code=${encodeURIComponent('AUTH_' + auth)}`);
+            const js = await s.json();
+            if (js?.status === 'confirmed' && js?.profile) {
+              const name = js.profile.name || '';
+              const avatar = js.profile.avatarUrl || null;
+              if (name) {
+                setNick(name);
+                setIsNickSet(true);
+                try { localStorage.setItem(LS_NICK, name); } catch {}
+              }
+              if (avatar) {
+                setAvatarUrl(avatar);
+                try { localStorage.setItem('bunker:avatar', avatar); } catch {}
+              }
+              url.searchParams.delete('auth');
+              window.history.replaceState({}, '', url.toString());
+            }
+          } catch {}
+        })();
+      }
+    } catch {}
     setNickChecked(true);
   }, []);
 
-  // 👇 РЕДИРЕКТ НА /auth, если ник не задан (отдельная страница авторизации)
-  useEffect(() => {
-    // ждём пока дочитаем localStorage
-    if (!nickChecked) return;
+  // Больше не редиректим на /auth — показываем модалку авторизации
 
-    // не редиректим, если уже на /auth (чтобы не зациклить)
-    const path = typeof window !== 'undefined' ? window.location.pathname : '/';
-    if (!isNickSet && !path.startsWith('/auth')) {
-      const next = path || '/';
-      router.replace(`/auth?next=${encodeURIComponent(next)}`);
-    }
-  }, [isNickSet, router, nickChecked]);
-
-  // загрузим сохранённое состояние тумблера логов
-  useEffect(() => {
-    try {
-      const v = localStorage.getItem(LS_SHOW_LOGS);
-      if (v != null) setShowLogs(v === '1');
-    } catch {}
-  }, []);
+  
 
   // 👇 первичная загрузка списка комнат по REST (на случай, если сокет подключится позже)
   useEffect(() => {
@@ -223,7 +248,7 @@ useEffect(() => {
       try {
         const savedRoom = window.localStorage.getItem(LS_ROOM);
         if (savedRoom && isNickSet) {
-          s.emit('joinRoom', { roomId: savedRoom, nick, clientId: getClientId() });
+          s.emit('joinRoom', { roomId: savedRoom, nick, clientId: getClientId(), avatarUrl });
           s.emit('room:getState', { roomId: savedRoom });
         }
       } catch {}
@@ -319,7 +344,7 @@ useEffect(() => {
       try {
         const savedRoom = window.localStorage.getItem(LS_ROOM);
         if (savedRoom && isNickSet) {
-          s.emit('joinRoom', { roomId: savedRoom, nick, clientId: getClientId() });
+          s.emit('joinRoom', { roomId: savedRoom, nick, clientId: getClientId(), avatarUrl });
           s.emit('room:getState', { roomId: savedRoom });
         }
       } catch {}
@@ -395,19 +420,17 @@ useEffect(() => {
 
 
 
-  const resetNick = () => {
+  const resetNick = useCallback(() => {
     setIsNickSet(false);
     setNick('');
     try {
       window.localStorage.removeItem(LS_NICK);
+      window.localStorage.removeItem('bunker:avatar');
     } catch {}
-    // 👇 отправляем на отдельную страницу авторизации
-    const next = typeof window !== 'undefined' ? window.location.pathname : '/';
-    router.replace(`/auth?next=${encodeURIComponent(next)}`);
-  };
+  }, []);
 
   // действия с лобби
-  const join = () => {
+  const join = useCallback(() => {
     if (!isNickSet) { showNotice('Сначала подтвердите ник', undefined, 'error'); return; }
    if (!room)      { showNotice('Введите код лобби', undefined, 'error');       return; }
     socketRef.current?.emit('joinRoom', { roomId: room, nick, clientId: getClientId() });
@@ -415,11 +438,11 @@ useEffect(() => {
       window.localStorage.setItem(LS_ROOM, room);
     } catch {}
     setUiMode('idle');
-  };
+  }, [isNickSet, room, nick]);
 
   // 👇 вместо мгновенного входа: открываем форму «Войти по коду» без автоподстановки,
   // но если лобби открыто — входим сразу.
-  const quickJoin = (r: ActiveRoom) => {
+  const quickJoin = useCallback((r: ActiveRoom) => {
     if (currentRoom) return;
     if (!isNickSet) { showNotice('Сначала подтвердите ник', undefined, 'error'); return; }
     if (r.open && !r.started) {
@@ -435,9 +458,9 @@ useEffect(() => {
       setRoom('');
       setTimeout(() => joinInputRef.current?.focus(), 0);
     }
-  };
+  }, [currentRoom, isNickSet, nick]);
 
-  const leave = () => {
+  const leave = useCallback(() => {
     if (!currentRoom) return;
     socketRef.current?.emit('leaveRoom', { roomId: currentRoom });
     setCurrentRoom(null);
@@ -450,9 +473,9 @@ useEffect(() => {
     try {
       window.localStorage.removeItem(LS_ROOM);
     } catch {}
-  };
+  }, [currentRoom]);
 
-  const createLobby = async () => {
+  const createLobby = useCallback(async () => {
     if (!isNickSet) { showNotice('Сначала подтвердите ник', undefined, 'error'); return; }
     try {
       const url = api('/rooms');
@@ -487,19 +510,19 @@ useEffect(() => {
       }
       showNotice('Не удалось создать лобби', message, 'error');
     }
-  };
+  }, [isNickSet, maxPlayers, gameType, openLobby, nick]);
 
   const isHost = hostId === getClientId();
 
-  const startGame = () => {
+  const startGame = useCallback(() => {
     if (!currentRoom) return;
     if (!isHost) return;
     if (players.length < 2) { showNotice('Нужно минимум 2 игрока', undefined, 'error'); return; }
     socketRef.current?.emit('room:start', { roomId: currentRoom });
     // дальше автопереход сработает, когда started станет true
-  };
+  }, [currentRoom, isHost, players.length]);
 
-  const goToGame = () => {
+  const goToGame = useCallback(() => {
   if (!currentRoom) return;
 
   // Помечаем автопереход как израсходованный для этой комнаты
@@ -518,619 +541,157 @@ useEffect(() => {
       roomGame === 'whoami' ? `/whoami/${currentRoom}` : `/game/${currentRoom}/intro`;
     router.push(fallback);
   }
-};
+}, [currentRoom, roomGame, router]);
 
-
-  // тумблер логов
-  const toggleLogs = () => {
-    setShowLogs((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(LS_SHOW_LOGS, next ? '1' : '0');
-      } catch {}
-      return next;
-    });
-  };
+  
+  
 
   // ——— UI ———
 
-  const TopBar = () => (
-    <div className="mb-6 flex items-center justify-between">
-      <h1 className="text-2xl font-bold">Лобби</h1>
-      <div className="flex items-center gap-3 text-sm">
-        <span>
-          WS статус: <b>{status}</b>
-        </span>
-        <span>
-          · Ник: <b>{nick}</b>
-        </span>
-        <button
-          onClick={resetNick}
-          className="text-xs underline text-gray-400 hover:text-gray-200"
-        >
-          сменить
-        </button>
+  
 
-        {/* тумблер логов */}
-        <span className="ml-4 opacity-60">Логи:</span>
-        <button
-          onClick={toggleLogs}
-          className={`px-2 py-1 rounded border text-xs ${
-            showLogs
-              ? 'bg-emerald-600/20 border-emerald-600 text-emerald-200'
-              : 'bg-gray-800 border-white/10 text-gray-300'
-          }`}
-          title="Показать/скрыть логи"
-        >
-          {showLogs ? 'вкл' : 'выкл'}
-        </button>
+  
 
-        {/* переключатель макета */}
-        <span className="ml-4 opacity-60">Макет:</span>
-        <button
-          onClick={() => setLayoutMode(layoutMode === 'sidebar' ? 'classic' : 'sidebar')}
-          className="px-2 py-1 rounded bg-gray-800 border border-white/10 text-xs"
-        >
-          {layoutMode === 'sidebar' ? 'Старая' : 'Новая'}
-        </button>
-      </div>
-    </div>
-  );
+  /** ===== Общий блок «Активные комнаты» с фильтрами — используется версиЯ из components ===== */
 
-  /** ===== Общий блок «Активные комнаты» с фильтрами ===== */
-  const ActiveRoomsSection = () => {
-    const roomsToShow = activeRooms.filter((r) => {
-      const byGame = filterGame === 'all' ? true : r.game === filterGame;
-      const byOpen =
-        filterOpen === 'all'
-          ? true
-          : filterOpen === 'open'
-          ? !!r.open
-          : !r.open;
-      return byGame && byOpen;
-    });
+  
 
-    const chip = (active: boolean) =>
-      `px-3 py-1 rounded border text-xs ${
-        active ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-gray-800 border-white/10 text-gray-300 hover:bg-gray-700'
-      }`;
+  
 
-    return (
-      <>
-        <h2 className="font-semibold mt-6 mb-2">Активные комнаты</h2>
-
-        {/* Фильтры */}
-        <div className="flex flex-wrap items-center gap-2 mb-2">
-          <span className="text-xs uppercase tracking-wider text-gray-400 mr-1">
-            Фильтр:
-          </span>
-          <button className={chip(filterGame === 'all')} onClick={() => setFilterGame('all')}>Все игры</button>
-          <button className={chip(filterGame === 'bunker')} onClick={() => setFilterGame('bunker')}>Бункер</button>
-          <button className={chip(filterGame === 'whoami')} onClick={() => setFilterGame('whoami')}>Кто я?</button>
-          <span className="opacity-40 mx-1">|</span>
-          <button className={chip(filterOpen === 'all')} onClick={() => setFilterOpen('all')}>Все</button>
-          <button className={chip(filterOpen === 'open')} onClick={() => setFilterOpen('open')}>Открытые</button>
-          <button className={chip(filterOpen === 'closed')} onClick={() => setFilterOpen('closed')}>Закрытые</button>
-        </div>
-
-        <div className="border rounded p-2 glass">
-          {roomsLoading ? (
-            <div className="text-sm text-gray-500 p-2">Загрузка...</div>
-          ) : roomsToShow.length === 0 ? (
-            <div className="text-sm text-gray-500 p-2">Под критерии ничего не нашлось.</div>
-          ) : (
-            <ul className="space-y-2">
-              {roomsToShow.map((r) => (
-                <li
-                  key={r.code}
-                  className="border rounded p-3 flex items-center justify-between gap-3"
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{r.hostNick || 'Без хоста'}</div>
-
-                    {/* улучшенная строка описания */}
-                    <div className="text-sm text-gray-300 flex items-center gap-2 flex-wrap">
-                      <span
-                        className={
-                          r.game === 'bunker'
-                            ? 'text-emerald-400 font-semibold'
-                            : 'text-gray-200'
-                        }
-                      >
-                        {r.game === 'whoami' ? 'Кто я?' : 'Бункер'}
-                      </span>
-                      <span className="opacity-40">•</span>
-                      <span>
-                        <b>{r.count}</b>/{r.maxPlayers}
-                      </span>
-                      <span className="opacity-40">•</span>
-                      <span>{r.started ? 'идёт' : 'ожидание'}</span>
-                      <span className="opacity-40">•</span>
-                      <span
-                        className={
-                          r.open
-                            ? 'text-emerald-400 font-medium'
-                            : 'text-rose-400 font-medium'
-                        }
-                      >
-                        {r.open ? 'открыто' : 'закрыто'}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => quickJoin(r)}
-                    disabled={!!currentRoom || r.started}
-                    className={`px-3 py-2 rounded ${
-                      !currentRoom && !r.started
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                    }`}
-                    title={
-                      !currentRoom && !r.started
-                        ? (r.open ? 'Войти сразу' : 'Перейти к вводу кода')
-                        : currentRoom
-                        ? 'Вы уже в лобби'
-                        : 'Игра уже началась'
-                    }
-                  >
-                    Войти
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </>
-    );
-  };
-
-  const ClassicLayout = () => (
-    <div className={`grid-cols-6 ${currentRoom ? 'md:grid-cols-2' : ''}`}>
-      <div>
-        <h2 className="font-semibold mb-2">Лобби</h2>
-
-        {currentRoom ? (
-          <div className="border rounded p-3 mb-4 glass">
-            <div className="text-sm text-gray-400 mb-1">Код лобби</div>
-            <div className="text-2xl font-bold tracking-widest">{currentRoom}</div>
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={async () => {
-                  if (currentRoom) await navigator.clipboard.writeText(currentRoom);
-                }}
-                className="btn-secondary"
-              >
-                Скопировать
-              </button>
-              {started ? (
-                <button onClick={goToGame} className="btn-primary">
-                  Открыть экран игры
-                </button>
-              ) : isHost && players.length >= 2 ? (
-                <button onClick={startGame} className="btn-primary">
-                  Начать игру
-                </button>
-              ) : null}
-              {currentRoom && (
-                <button
-                  onClick={leave}
-                  className="btn-secondary bg-red-600 hover:brightness-110"
-                >
-                  Выйти
-                </button>
-              )}
-            </div>
-          </div>
-        ) : uiMode === 'create' ? (
-          <div className="border rounded p-3 mb-4 glass">
-            <div className="text-sm text-gray-400 mb-2">Параметры лобби</div>
-
-            <label className="text-sm">Игра</label>
-            <div className="mt-1 mb-3">
-              <select
-                value={gameType}
-                onChange={(e) => setGameType(e.target.value as 'bunker' | 'whoami')}
-                className="border p-2 rounded w-60 bg-transparent"
-              >
-                <option value="bunker">Бункер</option>
-                <option value="whoami">Кто я?</option>
-              </select>
-            </div>
-
-            {/* 👇 КНОПКА ВКЛ/ВЫКЛ «Тип лобби» */}
-            <div className="mt-1 mb-3 flex items-center gap-3">
-              <label className="text-sm">Тип лобби:</label>
-              <button
-                type="button"
-                onClick={() => setOpenLobby((v) => !v)}
-                className={`px-3 py-1 rounded text-sm font-medium border ${
-                  openLobby
-                    ? 'bg-emerald-600/20 border-emerald-500 text-emerald-200'
-                    : 'bg-rose-600/20 border-rose-500 text-rose-200'
-                }`}
-                title="Переключить открытость лобби"
-              >
-                {openLobby ? 'Открытое' : 'Закрытое'}
-              </button>
-            </div>
-
-            <label className="text-sm">Количество игроков</label>
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                type="number"
-                min={2}
-                max={16}
-                className="border p-2 rounded w-28 bg-transparent"
-                value={maxPlayers}
-                onChange={(e) => setMaxPlayers(Number(e.target.value))}
-              />
-              <button onClick={createLobby} className="btn-primary">
-                Создать лобби
-              </button>
-              <button onClick={() => setUiMode('idle')} className="btn-secondary">
-                Назад
-              </button>
-            </div>
-          </div>
-        ) : uiMode === 'join' ? (
-          <div className="border rounded p-3 mb-4 glass">
-            <div className="text-sm text-gray-400 mb-2">Войти по коду</div>
-            <input
-              ref={joinInputRef}
-              className="border p-2 rounded w-full min-w-0 mb-2 bg-transparent"
-              placeholder="Код лобби"
-              value={room}
-              onChange={(e) => setRoom(e.target.value.toUpperCase())}
-            />
-            <div className="flex gap-2">
-              <button onClick={join} className="btn-primary">
-                Войти
-              </button>
-              <button onClick={() => setUiMode('idle')} className="btn-secondary">
-                Назад
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2 mb-4">
-            <button onClick={() => setUiMode('create')} className="btn-primary py-3">
-              Создать лобби
-            </button>
-            <button onClick={() => setUiMode('join')} className="btn-secondary py-3">
-              Войти в лобби
-            </button>
-          </div>
-        )}
-
-        {/* обновлённый блок активных комнат */}
-        <ActiveRoomsSection />
-
-        {/* лог только если включён */}
-        {showLogs && (
-          <>
-            <h2 className="font-semibold mt-6 mb-2">Лог</h2>
-            <ul className="space-y-1 max-h-64 overflow-auto border rounded p-2 glass">
-              {log.map((line, i) => (
-                <li key={i} className="text-xs font-mono">
-                  {line}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-
-      {currentRoom && (
-        <div>
-          <h2 className="font-semibold mb-2">Игроки в лобби</h2>
-
-          {/* Заголовок колонок */}
-          <div className="px-3 py-2 text-xs uppercase tracking-wider text-gray-400 grid grid-cols-[1fr_96px_96px] gap-2">
-            <div>Имя</div>
-            <div className="text-right">Место</div>
-            <div className="text-right">Роль</div>
-          </div>
-
-          {players.length === 0 ? (
-            <p className="text-sm text-gray-500">Пока никого…</p>
-          ) : (
-            <ul className="space-y-2">
-              {players.map((p) => {
-                const isHostP = p.id === hostId;
-                return (
-                  <li
-                    key={p.id}
-                    className="border rounded p-2 glass grid grid-cols-[1fr_96px_96px] items-center gap-2"
-                  >
-                    {/* Имя */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-full border border-white/10 flex items-center justify-center">
-                        👤
-                      </div>
-                      <div className="truncate font-medium">
-                        {p.nick}
-                        {isHostP ? ' 👑' : ''}
-                      </div>
-                    </div>
-                    {/* Место */}
-                    <div className="text-right text-sm text-gray-200">
-                      {typeof p.seat === 'number' ? p.seat : '—'}
-                    </div>
-                    {/* Роль */}
-                    <div className="text-right text-sm text-gray-200">
-                      {isHostP ? 'Хост' : 'Игрок'}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
-  const SidebarLayout = () => (
-    <div className="grid grid-cols-[300px,1fr] gap-6">
-      {/* Sidebar */}
-      <aside className="border rounded p-4 glass h-fit sticky top-6">
-        {/* Профиль */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-full border border-white/15 flex items-center justify-center text-gray-300">
-            👤
-          </div>
-          <div className="min-w-0">
-            <div className="font-semibold truncate">{nick}</div>
-            <div className="text-xs text-gray-500">WS: {status}</div>
-          </div>
-        </div>
-
-        {/* Большая карточка кода — только когда в лобби */}
-        {currentRoom && (
-          <div className="border rounded p-4 mb-4 glass">
-            <div className="text-xs text-gray-400">Код лобби</div>
-            <div className="mt-1 flex items-center justify-between gap-2">
-              <div className="text-3xl font-bold tracking-[0.35em]">{currentRoom}</div>
-              <button
-                onClick={async () => {
-                  if (currentRoom) await navigator.clipboard.writeText(currentRoom);
-                }}
-                className="btn-secondary"
-                title="Скопировать код"
-              >
-                Скопировать
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Игроки — только если в комнате */}
-        {currentRoom && (
-          <>
-            <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">
-              Игроки
-            </div>
-            <div className="rounded border border-white/10 mb-6">
-              {/* Заголовок колонок */}
-              <div className="px-3 py-2 text-[11px] uppercase tracking-wider text-gray-400 grid grid-cols-[1fr_64px_72px] gap-2">
-                <div>Имя</div>
-                <div className="text-right">Место</div>
-                <div className="text-right">Роль</div>
-              </div>
-              {players.length === 0 ? (
-                <div className="text-sm text-gray-500 p-3">Пока никого…</div>
-              ) : (
-                <ul className="max-h-[260px] overflow-auto divide-y divide-white/5">
-                  {players.map((p) => {
-                    const isHostP = p.id === hostId;
-                    return (
-                      <li
-                        key={p.id}
-                        className="p-3 grid grid-cols-[1fr_64px_72px] items-center gap-2"
-                      >
-                        {/* Имя */}
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-6 h-6 rounded-full border border-white/10 flex items-center justify-center">
-                            👤
-                          </div>
-                          <div className="truncate font-medium text-sm">
-                            {p.nick}
-                            {isHostP ? ' 👑' : ''}
-                          </div>
-                        </div>
-                        {/* Место */}
-                        <div className="text-right text-xs text-gray-200">
-                          {typeof p.seat === 'number' ? p.seat : '—'}
-                        </div>
-                        {/* Роль */}
-                        <div className="text-right text-xs text-gray-200">
-                          {isHostP ? 'Хост' : 'Игрок'}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* Действия / Формы */}
-        {!currentRoom ? (
-          uiMode === 'idle' ? (
-            <>
-              <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">
-                Действия
-              </div>
-              <div className="space-y-2 mb-6">
-                <button onClick={() => setUiMode('create')} className="btn-primary w-full min-w-0 py-3">
-                  Создать лобби
-                </button>
-                <button onClick={() => setUiMode('join')} className="btn-secondary w-full min-w-0 py-3">
-                  Войти в лобби
-                </button>
-              </div>
-            </>
-          ) : uiMode === 'create' ? (
-            <>
-              <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">
-                Параметры лобби
-              </div>
-              <div className="rounded border border-white/10 p-3 mb-6">
-                <label className="text-xs">Игра</label>
-                <select
-                  value={gameType}
-                  onChange={(e) => setGameType(e.target.value as 'bunker' | 'whoami')}
-                  className="mt-1 mb-3 w-full min-w-0 border rounded p-2 bg-transparent"
-                >
-                  <option value="bunker">Бункер</option>
-                  <option value="whoami">Кто я?</option>
-                </select>
-
-                {/* 👇 КНОПКА ВКЛ/ВЫКЛ «Тип лобби» */}
-                <div className="mt-1 mb-3 flex items-center gap-2">
-                  <label className="text-xs">Тип лобби:</label>
-                  <button
-                    type="button"
-                    onClick={() => setOpenLobby((v) => !v)}
-                    className={`px-3 py-1 rounded text-xs font-medium border ${
-                      openLobby
-                        ? 'bg-emerald-600/20 border-emerald-500 text-emerald-200'
-                        : 'bg-rose-600/20 border-rose-500 text-rose-200'
-                    }`}
-                    title="Переключить открытость лобби"
-                  >
-                    {openLobby ? 'Открытое' : 'Закрытое'}
-                  </button>
-                </div>
-
-                <label className="text-xs">Количество игроков</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <input
-                    type="number"
-                    min={2}
-                    max={16}
-                    className="border p-2 rounded w-24 bg-transparent"
-                    value={maxPlayers}
-                    onChange={(e) => setMaxPlayers(Number(e.target.value))}
-                  />
-                </div>
-
-                <div className="mt-3 flex gap-2">
-                  <button onClick={createLobby} className="btn-primary">Создать</button>
-                  <button onClick={() => setUiMode('idle')} className="btn-secondary">Отмена</button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">
-                Войти по коду
-              </div>
-              <div className="rounded border border-white/10 p-3 mb-6">
-                <input
-                  ref={joinInputRef}
-                  className="border p-2 rounded w-full min-w-0 mb-2 bg-transparent"
-                  placeholder="Код лобби"
-                  value={room}
-                  onChange={(e) => setRoom(e.target.value.toUpperCase())}
-                />
-                <div className="flex gap-2">
-                  <button onClick={join} className="btn-primary">Войти</button>
-                  <button onClick={() => setUiMode('idle')} className="btn-secondary">Отмена</button>
-                </div>
-              </div>
-            </>
-          )
-        ) : (
-          <div className="rounded border border-white/10 p-3 mb-6">
-            <div className="flex flex-col gap-2">
-              {!started && isHost && players.length >= 2 && (
-                <button onClick={startGame} className="btn-primary">Начать игру</button>
-              )}
-              {started && (
-                <button onClick={goToGame} className="btn-primary">Открыть экран игры</button>
-              )}
-              <button onClick={leave} className="btn-secondary bg-red-600 hover:brightness-110">
-                Выйти из лобби
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Активные комнаты (обновлённые с фильтрами) */}
-        <ActiveRoomsSection />
-      </aside>
-
-      {/* Content: лог — только если включен тумблер */}
-      <section className="space-y-6">
-        {showLogs && (
-          <div className="border rounded p-5 glass">
-            <div className="mb-3 font-semibold">Лог</div>
-            <ul className="space-y-1 max-h-96 overflow-auto text-xs">
-              {log.map((line, i) => (
-                <li key={i} className="font-mono">
-                  {line}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </section>
-    </div>
-  );
+  
 
   // основной экран лобби
   return (
-    <main className="min-h-[100dvh] relative flex flex-col bg-gradient-to-b from-[#0d0d1a] via-[#111133] to-black bg-radial-glow bg-vignette overflow-x-hidden">
-      {/* полупрозрачные волны поверх */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[url('/bg_waves.png')] bg-cover bg-center opacity-40"
-      />
+    <div className="min-h-screen relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(120,119,198,0.3),transparent_50%)] animate-pulse" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,119,198,0.2),transparent_50%)] animate-pulse" style={{ animationDelay: '1s' }} />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_40%,rgba(120,200,255,0.1),transparent_50%)] animate-pulse" style={{ animationDelay: '2s' }} />
 
-      {/* весь контент поверх фона */}
-      <div className="relative z-10">
-        {/* Шапка фиксированной ширины */}
-        <div className="px-6 w-full min-w-0 max-w-6xl mx-auto">
-          <TopBar />
-        </div>
+      <div className="absolute top-20 left-20 w-72 h-72 rounded-full bg-gradient-to-r from-indigo-500/15 to-purple-600/15 blur-3xl" />
+      <div className="absolute bottom-20 right-20 w-80 h-80 rounded-full bg-gradient-to-r from-emerald-500/15 to-teal-600/15 blur-3xl" />
 
-        {/* Центрируем контент и сдвигаем чуть вверх */}
-        <div className="flex items-start pt-[12vh]">
-          <div className="w-full min-w-0 max-w-6xl mx-auto px-6 overflow-x-hidden">
-            <div className="absolute -z-10 -top-12 -left-20 w-72 h-72 rounded-full blur-3xl opacity-30 bg-indigo-700/40" />
-            <div className="absolute -z-10 -bottom-16 -right-24 w-80 h-80 rounded-full blur-3xl opacity-25 bg-emerald-600/40" />
-            {layoutMode === 'sidebar' ? <SidebarLayout /> : <ClassicLayout />}
-          </div>
+      <div className="relative z-10 p-6">
+        <div className="max-w-6xl mx-auto">
+          <TopBar
+            status={status}
+            nick={nick}
+            onBack={() => router.push('/')}
+            onResetNick={resetNick}
+          />
+          <PlayerInfoBar
+            avatarUrl={avatarUrl}
+            nick={nick}
+            status={status}
+            currentRoom={currentRoom}
+            isHost={hostId === getClientId()}
+            started={started}
+            playersCount={players.length}
+            onStart={startGame}
+            onGoToGame={goToGame}
+            onLeave={leave}
+            onCreateClick={() => setUiMode('create')}
+            onJoinClick={() => setUiMode('join')}
+          />
+          
+          {/* Большая карточка кода — только когда в лобби */}
+          {currentRoom && (
+            <motion.div
+              initial={false}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 p-6 shadow-2xl"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">#</span>
+                </div>
+                <h2 className="text-2xl font-bold text-white">Код лобби</h2>
+              </div>
+              
+              <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
+                <div className="flex-1">
+                  <div className="text-4xl font-bold tracking-[0.35em] text-white mb-2">{currentRoom}</div>
+                  <div className="text-sm text-gray-400">Поделитесь этим кодом с друзьями</div>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={async () => {
+                    if (currentRoom) await navigator.clipboard.writeText(currentRoom);
+                  }}
+                  className="px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300"
+                  title="Скопировать код"
+                >
+                  Скопировать
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+          
+          <AuthModal
+            open={nickChecked && !isNickSet}
+            nick={nick}
+            onChangeNick={(v) => setNick(v)}
+            onConfirm={() => {
+              const v = nick.trim();
+              if (!v) return;
+              try { window.localStorage.setItem(LS_NICK, v); } catch {}
+              setIsNickSet(true);
+            }}
+            onClose={() => {
+              // при закрытии без ввода ника оставляем лобби доступным, но кнопки входа/создания предупредят
+            }}
+          />
+          <PlayersSection players={players} currentRoom={currentRoom} hostId={hostId} />
+          <ActiveRoomsSection
+            activeRooms={activeRooms}
+            filterGame={filterGame}
+            filterOpen={filterOpen}
+            currentRoom={currentRoom}
+            onFilterGame={setFilterGame}
+            onFilterOpen={setFilterOpen}
+            onQuickJoin={quickJoin}
+            roomsLoading={roomsLoading}
+          />
+          <FormModal
+            uiMode={uiMode}
+            gameType={gameType}
+            openLobby={openLobby}
+            maxPlayers={maxPlayers}
+            room={room}
+            onClose={() => setUiMode('idle')}
+            onCreate={createLobby}
+            onJoin={join}
+            onGameType={setGameType}
+            onToggleOpen={() => setOpenLobby((v) => !v)}
+            onMaxPlayers={setMaxPlayers}
+            onRoomChange={setRoom}
+          />
         </div>
       </div>
 
-      {/* ▾ Уведомление снизу по центру (как виджет конца игры) */}
-      {notice && (
-        <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-6 sm:px-8 py-5 sm:py-6 rounded-xl border shadow-xl cursor-pointer"
-          style={{
-            // двойной фон: первый — цвет темы (если он с альфой), второй — сплошной, чтобы убрать прозрачность
-            background: 'var(--c-card), #0f172a',
-            borderColor: 'var(--c-border)'
-          }}
-          role="status"
-          aria-live="polite"
-          onClick={() => setNotice(null)}
-        >
-          <div className="text-center">
-            <div className="text-xl sm:text-2xl font-extrabold mb-1">
-              {notice.top}
-            </div>
-            {notice.bottom && (
-              <div className="text-sm sm:text-base opacity-90 select-none">
-                {notice.bottom}
+      <AnimatePresence initial={false}>
+        {notice && (
+          <motion.div
+            initial={false}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 100, scale: 0.9 }}
+            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 px-8 py-6 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl cursor-pointer max-w-md"
+            onClick={() => setNotice(null)}
+          >
+            <div className="text-center">
+              <div className="text-2xl font-bold text-white mb-2">
+                {notice.top}
               </div>
-            )}
-          </div>
-        </div>
-      )}
-    </main>
+              {notice.bottom && (
+                <div className="text-gray-300">
+                  {notice.bottom}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

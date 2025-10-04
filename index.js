@@ -2,10 +2,57 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
+const { createCorsMiddleware } = require('./lib/cors');
 const { Server } = require('socket.io');
+const fs = require('fs');
+const fsp = require('fs').promises;
+const path = require('path');
+const crypto = require('crypto');
+// Game modules (DI)
+const rounds = require('./game/rounds');
+const timers = require('./game/timers');
+const voteMod = require('./game/vote');
+
+// Импортируем функции из rounds для прямого использования
+const { allReachedQuota } = rounds;
+
+// Связка модулей (dependency injection)
+timers.setVoteFunctions(voteMod.nextSpeechOrBallot, voteMod.finishBallot);
+voteMod.setDependencies({
+  clearTurnTimer: timers.clearTurnTimer,
+  ensureTurnState,
+  getRoomPlayerById,
+  checkGameOver,
+  emitGameState,
+  ensureRoundState: rounds.ensureRoundState,
+  emitRoundState,
+  beginTurn,
+  scheduleVoteTick: timers.scheduleVoteTick,
+  clearVoteTick: timers.clearVoteTick,
+  setLastVoteAndBroadcast,
+  advanceTurn,
+  nowSec: timers.nowSec,
+});
 
 // Характеристики и генератор руки
-const { generateHand, ORDER, generateBunker, generateCataclysm } = require('./data/cards');
+const {
+  generateHand,
+  ORDER,
+  generateBunker,
+  generateCataclysm,
+  HAND_KEYS,
+  GENDERS,
+  BODIES,
+  TRAITS,
+  PROFESSIONS,
+  HEALTHS,
+  HOBBIES,
+  PHOBIAS,
+  BIG_ITEMS,
+  BACKPACK,
+  EXTRAS,
+  ABILITIES,
+} = require('./data/cards');
 
 
 const PORT = Number(process.env.PORT || 4000);
@@ -17,6 +64,99 @@ const RATE_ROOMS_MAX = Number(process.env.RATE_ROOMS_MAX || 10);
 const app = express();
 app.set('trust proxy', true);
 
+const randomItem = (arr = []) => arr[Math.floor(Math.random() * arr.length)];
+
+// === Статистика игры ===
+let gameStats = {
+  activePlayers: 0, // legacy/incremental (no longer trusted for GET)
+  activeGames: 0,   // legacy/incremental (no longer trusted for GET)
+  completedGames: 0
+};
+
+// Функции для обновления статистики
+const updateStats = (action, gameId) => {
+  switch (action) {
+    case 'player_joined':
+      gameStats.activePlayers++;
+      break;
+    case 'player_left':
+      gameStats.activePlayers = Math.max(0, gameStats.activePlayers - 1);
+      break;
+    case 'game_started':
+      gameStats.activeGames++;
+      break;
+    case 'game_ended':
+      gameStats.activeGames = Math.max(0, gameStats.activeGames - 1);
+      gameStats.completedGames++;
+      break;
+  }
+  console.log(`Stats updated: ${action}`, gameStats);
+};
+
+// === Accurate, low-cost snapshot based on in-memory rooms ===
+function computeStatsSnapshot() {
+  try {
+    const uniquePlayerIds = new Set();
+    let activeGames = 0;
+
+    for (const room of rooms.values()) {
+      if (room && room.started && !room.gameOver) activeGames++;
+      if (room && room.players && typeof room.players.values === 'function') {
+        for (const p of room.players.values()) {
+          // считаем только актуальных игроков комнаты (без kicked)
+          if (!p) continue;
+          if (p.kicked) continue;
+          const pid = p.clientId || p.id;
+          if (pid) uniquePlayerIds.add(pid);
+        }
+      }
+    }
+
+    return {
+      activePlayers: uniquePlayerIds.size,
+      activeGames,
+      completedGames: gameStats.completedGames,
+    };
+  } catch (e) {
+    console.error('computeStatsSnapshot failed:', e);
+    // Fallback to legacy counters on error
+    return {
+      activePlayers: Math.max(0, Number(gameStats.activePlayers) || 0),
+      activeGames: Math.max(0, Number(gameStats.activeGames) || 0),
+      completedGames: Math.max(0, Number(gameStats.completedGames) || 0),
+    };
+  }
+}
+
+const REROLL_POOLS = {
+  gender: GENDERS,
+  body: BODIES,
+  trait: TRAITS,
+  profession: PROFESSIONS,
+  health: HEALTHS,
+  hobby: HOBBIES,
+  phobia: PHOBIAS,
+  bigItem: BIG_ITEMS,
+  backpack: BACKPACK,
+  extra: EXTRAS,
+  ability1: ABILITIES,
+  ability2: ABILITIES,
+};
+
+function randomValueForKey(key, hand = {}) {
+  const pool = REROLL_POOLS[key];
+  if (!Array.isArray(pool) || pool.length === 0) return null;
+
+  const exclude = new Set();
+  if (hand && hand[key]) exclude.add(hand[key]);
+  if (key === 'ability1' && hand?.ability2) exclude.add(hand.ability2);
+  if (key === 'ability2' && hand?.ability1) exclude.add(hand.ability1);
+
+  const candidates = pool.filter((item) => !exclude.has(item));
+  const source = candidates.length ? candidates : pool;
+  return randomItem(source);
+}
+
 // Разрешённые origin'ы: FRONT_ORIGIN="http://localhost:3000,https://mydomain.tld"
 const origins = (process.env.FRONT_ORIGIN || '')
   .split(',')
@@ -24,8 +164,8 @@ const origins = (process.env.FRONT_ORIGIN || '')
   .filter(Boolean);
 
 //app.use(cors({
- // origin: origins.length ? origins : true,     // dev: true (отражает пришедший Origin)
-  //credentials: origins.length > 0,             // credentials только если origin фиксированный
+//  origin: origins.length ? origins : true,     // dev: true (отражает пришедший Origin)
+//  credentials: origins.length > 0,             // credentials только если origin фиксированный
 //}));
 
 
@@ -62,35 +202,56 @@ const createRoomRate = new Map();
 
 
 // ✅ ЕДИНСТВЕННЫЙ CORS до всех роутов
-const allow = (process.env.FRONT_ORIGIN || 'http://localhost:3000')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  // Эхо-режим: если браузер прислал Origin — всегда отражаем его (OK для dev)
-  if (origin && (!allow.length || allow.includes(origin))) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Vary', 'Origin');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else if (!allow.length) {
-    // без Origin и без явно заданного списка — открываем для всех (без credentials)
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-  // Всегда добавляем базовые заголовки + запрошенные
-  const reqHdrs = req.header('Access-Control-Request-Headers');
-  const baseHdrs = 'Content-Type, Authorization';
-  res.setHeader('Access-Control-Allow-Headers', reqHdrs ? `${baseHdrs}, ${reqHdrs}` : baseHdrs);
-  res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
-  // Optional: кэш preflight
-  // res.setHeader('Access-Control-Max-Age', '86400');
-
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
-  next();
-});
+app.use(createCorsMiddleware(process.env.FRONT_ORIGIN || 'http://localhost:3000'));
 
 app.use(express.json());
+// ====== Users and avatars ======
+const { AVATARS_DIR, initAvatarDir, enqueueAvatarJob, tryGetCachedAvatarPath, upsertUserProfile } = require('./store/users');
+initAvatarDir();
+app.use('/avatars', express.static(AVATARS_DIR, { maxAge: '7d', immutable: false }));
+
+
+// ====== Simple auth audit + rate limit ======
+const AUTH_RATE_WINDOW_MS = Number(process.env.AUTH_RATE_WINDOW_MS || 60_000);
+const AUTH_RATE_MAX = Number(process.env.AUTH_RATE_MAX || 20);
+const authRate = new Map(); // Map<ip, number[]>
+
+function rateLimitAuth(req, res) {
+  const ip = getClientIp(req) || 'unknown';
+  const now = Date.now();
+  const arr = authRate.get(ip) || [];
+  const fresh = arr.filter((ts) => now - ts < AUTH_RATE_WINDOW_MS);
+  if (fresh.length >= AUTH_RATE_MAX) {
+    res.setHeader('Retry-After', Math.ceil(AUTH_RATE_WINDOW_MS / 1000));
+    res.status(429).json({ ok: false, error: 'rate_limited' });
+    return false;
+  }
+  fresh.push(now);
+  authRate.set(ip, fresh);
+  return true;
+}
+
+function auditAuth(event, payload) {
+  const line = JSON.stringify({ t: new Date().toISOString(), evt: event, ...payload }) + '\n';
+  fsp.appendFile(path.join(__dirname, 'server.log'), line, 'utf8').catch(() => {});
+}
+
+// ===== Routers =====
+const { createAuthRouter } = require('./routes/auth');
+app.use(createAuthRouter({ rateLimitAuth }));
+
+// API endpoint для получения статистики (точный срез по rooms)
+app.get('/api/stats', (req, res) => {
+  const snapshot = computeStatsSnapshot();
+  res.json(snapshot);
+});
+
+// API endpoint для обновления статистики (для тестирования)
+app.post('/api/stats', (req, res) => {
+  const { action, gameId } = req.body;
+  updateStats(action, gameId);
+  res.json({ success: true, stats: gameStats });
+});
 
 function getClientIp(req) {
   const xfwd = req.headers['x-forwarded-for'];
@@ -202,26 +363,7 @@ function advanceTurn(room) {
 
 
 // ==== Turn timer per room ====
-function startTurnTimer(roomId) {
-  const room = ensureRoom(roomId);
-  if (!room) return;
-  clearTurnTimer(roomId);
-  room.turnTimerSec = 0;
-  room.turnTimer = setInterval(() => {
-    const r = ensureRoom(roomId);
-    if (!r) { clearTurnTimer(roomId); return; }
-    r.turnTimerSec = (r.turnTimerSec || 0) + 1;
-    const sec = Math.min(r.turnTimerSec, 120);
-    io.to(roomId).emit('game:turnTick', { roomId, seconds: sec });
-  }, 1000);
-}
-
-function clearTurnTimer(roomId) {
-  const room = ensureRoom(roomId);
-  if (!room || !room.turnTimer) return;
-  clearInterval(room.turnTimer);
-  room.turnTimer = null;
-}
+// перенесено в game/timers
 
 
 // удобный helper при смене хода
@@ -236,7 +378,7 @@ function beginTurn(roomId, currentTurnId) {
 
   io.to(roomId).emit('game:turn', { roomId, currentTurnId });
   resetSkipVotes(room);
-  startTurnTimer(roomId);
+  timers.startTurnTimer(roomId, room, io);
 }
 
 
@@ -298,12 +440,12 @@ function applySkipAutoReveal(room, prevPlayerId, roomId) {
   emitGameState(roomId, room);
 
   // 👇 учёт квоты раунда (для обычных ключей; revealRandomFor уже выбирает только их)
-  ensureRoundState(room);
-  bumpRevealedThisRound(room, prevPlayerId);
+  rounds.ensureRoundState(room);
+  rounds.bumpRevealedThisRound(room, prevPlayerId);
   emitRoundState(room);
 
   // если все достигли квоты — переключаем раунд и оповещаем
-  if (allReachedQuota(room)) {
+  if (rounds.allReachedQuota(room)) {
     beginSpeeches(room);
     return; // дальше состояние разошлёт broadcastVote()
   }
@@ -312,7 +454,7 @@ function applySkipAutoReveal(room, prevPlayerId, roomId) {
 
 // Унифицированная отправка game:state (как вы делаете в game:sync/room:start)
 function emitGameState(roomId, room) {
-  const sec   = Math.min(room.turnTimerSec || 0, 120);
+  const sec = Math.min(room.turnTimerSec || 0, 120);
   const total = getActivePlayersCount(room);
   io.to(roomId).emit('game:state', {
     roomId,
@@ -326,17 +468,38 @@ function emitGameState(roomId, room) {
     voteSkip: {
       votes: room.skipVotes ? room.skipVotes.size : 0,
       total,
-      needed: Math.ceil(total / 2),      // ≥ 50%
+      needed: Math.ceil(total / 2),
       voters: Array.from(room.skipVotes || []),
     },
-    // 👇 ДОБАВИТЬ:
-  gameOver: !!room.gameOver,
-  winners: Array.isArray(room.winners) ? room.winners : [],
-  lastVote: room.lastVote || null,      // ⬅️ добавили
-  cleanupAt: room.cleanupAt || null, // ⏳ клиенту для обратного отсчёта
-
-
+    revealAll: !!room.revealAll,
+    editorEnabled: !!room.editorEnabled,
+    paused: !!room.paused,
+    gameOver: !!room.gameOver,
+    winners: Array.isArray(room.winners) ? room.winners : [],
+    lastVote: room.lastVote || null,
+    cleanupAt: room.cleanupAt || null,
   });
+
+  if (room.hostRevealHands) {
+    emitHostHands(room);
+  }
+}
+
+
+function emitHostHands(room) {
+  if (!room?.hostRevealHands || !room.hostClientId) return;
+
+  const hostPlayer = room.players?.get(room.hostClientId);
+  if (!hostPlayer || !hostPlayer.id) return;
+
+  const hands = {};
+  room.players.forEach((player) => {
+    if (player?.clientId && player?.hand) {
+      hands[player.clientId] = { ...player.hand };
+    }
+  });
+
+  io.to(hostPlayer.id).emit('game:revealAll:host', { roomId: room.code, hands });
 }
 
 // 👇 единый хелпер: сохранить и разослать "итоги последнего голосования"
@@ -346,7 +509,7 @@ function setLastVoteAndBroadcast(roomId, room, { totals, votersByTarget }) {
   const totalVoters = Object.values(votersByTarget || {}).reduce((acc, arr) => acc + (arr?.length || 0), 0);
 
   room.lastVote = {
-    at: nowSec(),
+    at: timers.nowSec(),
     totalEligible,
     totalVoters,
     totals: totals || {},
@@ -381,7 +544,8 @@ function checkGameOver(room) {
 
     room.currentTurnId = null; // 👈 опционально, но аккуратнее
 
-    
+    // Обновляем статистику при завершении игры
+    updateStats('game_ended', room.code);
 
     // ⏳ назначаем удаление через 5 минут и сообщаем deadline клиентам
     scheduleRoomCleanup(room);
@@ -415,6 +579,7 @@ function presencePayload(room) {
       id: p.clientId,
       nick: p.nick,
       seat: p.seat,
+      avatarUrl: p.avatarUrl || null,
     }))),
     maxPlayers: room.maxPlayers,
   };
@@ -431,24 +596,35 @@ function roomStatePayload(room) {
       id: p.clientId,
       nick: p.nick,
       seat: p.seat,
+      avatarUrl: p.avatarUrl || null,
     }))),
   };
 }
 function publicPlayers(room) {
-  const arr = Array.from(room.players.values()).map(p => ({
-    id: p.clientId,
-    nick: p.nick,
-    revealed: p.revealed || {},
-    seat: p.seat,
-    kicked: !!p.kicked,
-    abilities: [p.hand?.ability1, p.hand?.ability2] || [],
-  }));
+  const revealAll = !!room.revealAll;
+  const arr = Array.from(room.players.values()).map((p) => {
+    const hand = p.hand ? { ...p.hand } : {};
+    const payload = {
+      id: p.clientId,
+      nick: p.nick,
+      avatarUrl: p.avatarUrl || null,
+      revealed: revealAll ? hand : { ...(p.revealed || {}) },
+      seat: p.seat,
+      kicked: !!p.kicked,
+      abilities: [p.hand?.ability1, p.hand?.ability2] || [],
+    };
+    if (revealAll) {
+      payload.hand = hand;
+    }
+    return payload;
+  });
   // Активные по seat, «исключённые» — вниз, тоже по seat
   return arr.sort((a, b) => {
     if (!!a.kicked === !!b.kicked) return (a.seat || 0) - (b.seat || 0);
     return a.kicked ? 1 : -1;
   });
 }
+
 
 /* ===== Активные комнаты (для лобби) ===== */
 function roomsList() {
@@ -525,292 +701,34 @@ function resetSkipVotes(room) {
 
 
 // ---- ROUNDS --------------------------------------------------
-const ABILITY_KEYS = new Set(['ability1', 'ability2']);
-
-function isAbilityKey(key) {
-  return ABILITY_KEYS.has(key);
-}
-
-// Таблица лимитов (строго как на скрине)
-function computeRoundQuota(playersCount, roundNumber) {
-  if (playersCount <= 6) {
-    if (roundNumber === 1) return 3;
-    if (roundNumber === 2) return 3;
-    if (roundNumber === 3) return 2;
-    return 0; // «—» с 4-го раунда
-  } else if (playersCount <= 8) {
-    if (roundNumber === 1) return 3;
-    if (roundNumber === 2) return 3;
-    if (roundNumber === 3) return 1;
-    return 1; // с 4 по 7 — по 1
-  } else if (playersCount <= 10) {
-    if (roundNumber === 1) return 3;
-    if (roundNumber === 2) return 2;
-    if (roundNumber === 3) return 1;
-    return 1;
-  } else if (playersCount <= 12) {
-    if (roundNumber === 1) return 2;
-    if (roundNumber === 2) return 2;
-    if (roundNumber === 3) return 1;
-    return 1;
-  } else {
-    if (roundNumber === 1) return 2;
-    if (roundNumber === 2) return 1;
-    if (roundNumber === 3) return 1;
-    return 1;
-  }
-}
-
-// Инициализация/пересчёт раунда (на старте игры и при переходе)
-function ensureRoundState(room) {
-  if (!room.round) {
-    room.round = { number: 1, quota: 0, revealedBy: {} };
-  }
-  const activePlayerIds = room.turnOrder || []; // turnOrder уже без kicked
-  const cnt = activePlayerIds.length || (room.players ? room.players.size : 0);
-
-  const q = computeRoundQuota(cnt, room.round.number);
-  room.round.quota = q;
-  // подчистим счётчики по неактивным
-  const nextMap = {};
-  for (const id of activePlayerIds) {
-    nextMap[id] = room.round.revealedBy?.[id] ?? 0;
-  }
-  room.round.revealedBy = nextMap;
-}
-
-function bumpRevealedThisRound(room, playerId) {
-  ensureRoundState(room);
-  room.round.revealedBy[playerId] = (room.round.revealedBy[playerId] || 0) + 1;
-}
-
-function allReachedQuota(room) {
-  ensureRoundState(room);
-  const quota = room.round.quota;
-  if (quota <= 0) return true; // для 6 игроков после 3-го – раундов больше нет
-  const ids = room.turnOrder || [];
-  if (!ids.length) return false;
-  return ids.every(id => (room.round.revealedBy[id] || 0) >= quota);
-}
-
-function advanceRound(room) {
-  ensureRoundState(room);
-  const playersCount = (room.turnOrder || []).length;
-  // следующий номер
-  let next = room.round.number + 1;
-  const nextQuota = computeRoundQuota(playersCount, next);
-  if (nextQuota <= 0) {
-    // дальше раундов нет — остаёмся на текущем (ничего не меняем)
-    return;
-  }
-  room.round.number = next;
-  room.round.quota = nextQuota;
-  room.round.revealedBy = {};
-  // Смена раунда — любое голосование сбрасываем
-  room.vote = { phase: 'idle' };
-}
+// перенесено в game/rounds.js
 
 
 // ===== Голосование: каркас двух этапов (спичи → голосование) =====
 
-function nowSec() { return Math.floor(Date.now() / 1000); }
+// перенесено в game/timers.js
 
-function broadcastVote(room) {
-  const payload = room.vote ? {
-    roomId: room.code,
-    phase: room.vote.phase,            // 'idle'|'speeches'|'ballot'
-    endsAt: room.vote.endsAt || null,  // unix sec
-    speechOrder: room.vote.speechOrder || [],
-    speakingIdx: room.vote.speakingIdx ?? -1,
-    votes: room.vote.votes || {},      // {playerId: count}
-    votedBy: Array.from(room.vote.votedBy || []), // кто уже голосовал
-    totalVoters: room.vote.activeAtVote ? room.vote.activeAtVote.size : undefined,
-    allowedTargets: room.vote.allowedTargets ? Array.from(room.vote.allowedTargets) : undefined,
-  } : { roomId: room.code, phase: 'idle' };
+const broadcastVote = (room) => voteMod.broadcastVote(room, ioRef);
 
-  ioRef?.to(room.code).emit('vote:state', payload);
-}
+const ensureVoteIdle = (room) => voteMod.ensureVoteIdle(room);
 
-function ensureVoteIdle(room) {
-  if (!room.vote) room.vote = { phase: 'idle' };
-}
+const beginSpeeches = (room) => voteMod.beginSpeeches(room, ioRef);
 
-function beginSpeeches(room) {
-  clearTurnTimer(room.code); // пауза таймера хода на время голосования
-  const ids = (room.turnOrder || []).slice();
-  // порядок спичей — порядок посадки (как в таблице)
-  room.vote = {
-    phase: 'speeches',
-    speechOrder: ids,
-    speakingIdx: 0,
-    endsAt: nowSec() + 60,    // 60 сек на спич
-    votes: {},                // на всякий
-    votedBy: new Set(),
-    activeAtVote: new Set(ids), // 👈 фиксируем состав на момент старта
-  };
-  broadcastVote(room);
-  scheduleVoteTick(room);
-}
+const nextSpeechOrBallot = (room) => voteMod.nextSpeechOrBallot(room, ioRef);
 
-function nextSpeechOrBallot(room) {
-  if (!room.vote || room.vote.phase !== 'speeches') return;
-  room.vote.speakingIdx += 1;
-  if (room.vote.speakingIdx >= (room.vote.speechOrder?.length || 0)) {
-    return enterBallot(room);
-  }
-  room.vote.endsAt = nowSec() + 60; // следующий спикер 60 сек
-  broadcastVote(room);
-  scheduleVoteTick(room);
-}
+const enterBallot = (room) => voteMod.enterBallot(room, ioRef);
+const finishBallot = (room) => voteMod.finishBallot(room, ioRef);
 
-function enterBallot(room) {
-  // окно голосования 90 секунд (тишина)
-  room.vote.phase = 'ballot';
-  room.vote.endsAt = nowSec() + 90;
-  room.vote.votes = {};        // {targetId: count}
-  room.vote.votedBy = new Set();
-  if (!room.vote.activeAtVote) {
-    room.vote.activeAtVote = new Set(room.turnOrder || []);
-  }
-  room.vote.byVoter = new Map();   // ⬅️ кто-кого (voterId -> targetId)
-  room.vote.allowedTargets = undefined; // обычное голосование — без ограничений
-  broadcastVote(room);
-  scheduleVoteTick(room);
-}
+// перенесено в game/vote.js
 
-function finishBallot(room) {
-  if (!room.vote || room.vote.phase !== 'ballot') return;
-
-  const totalPlayers = room.vote.activeAtVote
-  ? room.vote.activeAtVote.size
-  : (room.turnOrder || []).length;
-  // 👇 Авто-голос «за себя» для тех, кто не проголосовал
-  if (room.vote.activeAtVote instanceof Set) {
-    const allowed = (room.vote.allowedTargets instanceof Set && room.vote.allowedTargets.size > 0)
-      ? room.vote.allowedTargets
-      : null; // во 2-м туре голосовать можно только за кандидатов
-    room.vote.votes   = room.vote.votes   || {};
-    room.vote.votedBy = room.vote.votedBy || new Set();
-    room.vote.byVoter = room.vote.byVoter || new Map();
-    for (const voterId of room.vote.activeAtVote) {
-      // пропускаем отсутствующих/кикнутых
-      const pl = room.players.get(voterId);
-      if (!pl || pl.kicked) continue;
-      // если уже голосовал — пропускаем
-      if (room.vote.votedBy.has(voterId) || room.vote.byVoter.has(voterId)) continue;
-      // если идёт переголосование и себя нет среди кандидатов — не авто-голосуем
-      if (allowed && !allowed.has(voterId)) continue;
-      // учтём авто-голос за себя
-      room.vote.votes[voterId] = (room.vote.votes[voterId] || 0) + 1;
-      room.vote.votedBy.add(voterId);
-      room.vote.byVoter.set(voterId, voterId);
-    }
-  }
-  const votesMap = room.vote.votes || {};
-  const entries = Object.entries(votesMap).sort((a,b) => b[1]-a[1]); // [id,count]
-
-  let result = { type: 'tie', candidates: [], absolute: null, percent: 0 };
-  if (entries.length > 0) {
-    const [bestId, bestCnt] = entries[0];
-    const percent = totalPlayers > 0 ? (bestCnt / totalPlayers) : 0;
-    if (percent >= 0.7) {
-      result = { type: 'absolute', candidates: [bestId], absolute: bestId, percent };
-    } else {
-      // максималисты (м.б. несколько при равенстве)
-      const maxCnt = bestCnt;
-      const tied = entries.filter(([_, c]) => c === maxCnt).map(([id]) => id);
-      result = tied.length === 1
-        ? { type: 'max', candidates: tied, absolute: null, percent }
-        : { type: 'tie', candidates: tied, absolute: null, percent };
-    }
-  }
+// перенесено в game/timers.js
 
 
-  function enterRunoffBallot(room, candidates) {
-  room.vote.phase = 'ballot';
-  room.vote.endsAt = nowSec() + 90;
-  room.vote.votes = {};
-  room.vote.votedBy = new Set();
-  // состав из первого ballot сохраняем
-  if (!room.vote.activeAtVote) room.vote.activeAtVote = new Set(room.turnOrder || []);
-  room.vote.byVoter = new Map();
-  room.vote.allowedTargets = new Set(candidates); // 👈 ограничиваем цели
-  broadcastVote(room);
-  scheduleVoteTick(room);
-}
 
-  // === Сохраняем «результат последнего голосования» и шлём клиентам ===
-const votersByTarget = {};
-if (room.vote?.byVoter instanceof Map) {
-  for (const [voterId, targetId] of room.vote.byVoter.entries()) {
-    (votersByTarget[targetId] ||= []).push(voterId);
-  }
-}
-const resultsArr = entries.map(([id, cnt]) => ({
-  id,
-  count: cnt,
-  percent: totalPlayers > 0 ? Math.round((cnt / totalPlayers) * 100) : 0,
-  voters: votersByTarget[id] || [],
-}));
 
-room.lastVote = {
-  at: nowSec(),
-  totals: { ...votesMap },
-  votersByTarget,
-  results: resultsArr,
-  totalVoters:
-    room.vote?.votedBy?.size ?? Object.values(votesMap).reduce((a, b) => a + b, 0),
-  totalEligible:
-    room.vote?.activeAtVote?.size ?? (room.turnOrder?.length || 0),
-  top: resultsArr[0]?.id || null,
-};
 
-// отдельным событием — чтобы клиент мгновенно показал блок «Результат последнего голосования»
-ioRef?.to(room.code).emit('vote:result', {
-  roomId: room.code,
-  lastVote: room.lastVote,
-});
 
-  // 👇 Если ничья между несколькими лидерами — запускаем переголосование только среди них
-  const topCount = entries[0]?.[1] ?? 0;
-  const tiedTop = topCount > 0
-    ? entries.filter(([_, c]) => c === topCount).map(([id]) => id)
-    : [];
-  if (tiedTop.length > 1) {
-    // без кика, без смены раунда — сразу второй тур
-    enterRunoffBallot(room, tiedTop);
-    return;
-  }
 
-  // 🧹 Иначе (уникальный лидер) — исключаем одного
-  let expelledId = null;
-  if (entries.length > 0) expelledId = entries[0][0];
-  if (expelledId) {
-    const pl = getRoomPlayerById(room, expelledId);
-    if (pl) pl.kicked = true;
-    // убираем из порядка ходов
-    if (Array.isArray(room.turnOrder)) {
-      room.turnOrder = room.turnOrder.filter(id => id !== expelledId);
-    }
-    // если был его ход — переназначим на первого активного
-    if (room.currentTurnId === expelledId) {
-      ensureTurnState(room);
-      room.currentTurnId = room.turnOrder[0] || null;
-    }
-
-    // 🧹 убрать голос кикнутого из skipVotes, если был
-  if (room.skipVotes && room.skipVotes.delete) {
-    room.skipVotes.delete(expelledId);
-  }
-    // разошлём обновления до выхода из голосования
-    emitGameState(room.code, room);
-  }
-// если после кика активных ≤ мест — завершаем игру и выходим
-checkGameOver(room);
-if (room.gameOver) {
-  clearVoteTick(room);
-  return; // дальше (idle/round/beginTurn) не идём
-}
 
   
 
@@ -818,60 +736,8 @@ if (room.gameOver) {
 
 
 
-// 🧹 Чистим таймер голосования и выходим в idle
-clearVoteTick(room);
-room.vote = { phase: 'idle' };
-broadcastVote(room);
 
-// ⏭️ Переходим к следующему раунду
-if (!room.round) room.round = { number: 1, quota: 0, revealedBy: {} };
-room.round.number = (room.round.number || 1) + 1;
-// ВАЖНО: обнулить счётчики открытий на новый раунд
-room.round.revealedBy = {};
-// Актуализировать очередь ходов и квоту с учётом изгнанных/состава
-ensureTurnState(room);
-ensureRoundState(room);
-
-// Сброс голосов на "скип" между раундами (если используешь)
-if (room.skipVotes && room.skipVotes.clear) room.skipVotes.clear();
-
-// ▶ Вернуться к ходам и перезапустить таймер (ОДИН раз)
-beginTurn(room.code, room.currentTurnId);
-emitRoundState(room);
-emitGameState(room.code, room);
-
-}
-
-function scheduleVoteTick(room) {
-  clearVoteTick(room);
-  const rest = Math.max(0, (room.vote?.endsAt || 0) - nowSec());
- room.vote._tid = setTimeout(() => onVoteTimer(room), rest * 1000 + 50);
-}
-
-function onVoteTimer(room) {
-  if (!room.vote) return;
-  const now = nowSec();
- const ends = room.vote.endsAt || 0;
- // если дедлайн сдвинулся вперёд (мы пришли по старому таймеру) — перепланируем
- if (ends && now < ends) {
-   return scheduleVoteTick(room);
- }
-  if (room.vote.phase === 'speeches') {
-    return nextSpeechOrBallot(room);
-  }
-  if (room.vote.phase === 'ballot') {
-    return finishBallot(room);
-  }
-}
-
-function clearVoteTick(room) {
-  try {
-    if (room?.vote?._tid) {
-      clearTimeout(room.vote._tid);
-      room.vote._tid = null;
-    }
-  } catch {}
-}
+// перенесено в game/timers.js
 
 
 
@@ -882,49 +748,17 @@ app.get('/', (_, res) => {
 });
 app.get('/health', (_, res) => res.json({ ok: true, service: 'bunker-server' }));
 
-app.get('/rooms', (_, res) => {
-  res.json({ rooms: roomsList() });
-});
+// Rooms router
+const { createRoomsRouter } = require('./routes/rooms');
+app.use(createRoomsRouter({
+  rooms,
+  roomsList,
+  broadcastRooms: () => broadcastRooms(io),
+  rateLimitCreateRoom,
+  code4,
+}));
 
 let ioRef = null;
-
-app.post('/rooms', (req, res) => {
-  if (!rateLimitCreateRoom(req, res)) return;
-
-  let { maxPlayers, game, open } = req.body || {};
-  maxPlayers = Number(maxPlayers || 8);
-  if (maxPlayers < 2) maxPlayers = 2;
-  if (maxPlayers > 16) maxPlayers = 16;
-
-  const normalizedGame = game === 'whoami' ? 'whoami' : 'bunker';
-  const isOpen = !!open;
-
-  let code;
-  do { code = code4(); } while (rooms.has(code));
-
-  rooms.set(code, {
-    code,
-    game: normalizedGame,
-    maxPlayers,
-    hostClientId: null,
-    started: false,
-    nextSeat: 1,
-    players: new Map(),
-    open: isOpen,
-    bunker: null,          // 👈 добавлено
-    turnOrder: null,       // 👈 ДОБАВЬ
-    currentTurnId: null,   // 👈 ДОБАВЬ
-    vote: null, // 👈 состояние голосования в раунде (null|объект)
-    reconnect: new Map(), // clientId -> Player (30с на быстрый реjoin)
-    gameOver: false,
-    winners: [],
-    lastVote: null,             // ⬅️ тут будем хранить «Результат последнего голосования»
-  });
-
-  if (ioRef) setTimeout(() => broadcastRooms(ioRef), 0);
-
-  res.json({ code, maxPlayers });
-});
 
 // ===== WS =====
 const server = http.createServer(app);
@@ -942,7 +776,9 @@ function ensureRoom(roomId) {
   return room || null;
 }
 
-io.on('connection', (socket) => {
+// === Socket.IO: регистрация обработчиков через внешнюю функцию ===
+const { initGameSockets } = require('./sockets/game');
+function registerSocketHandlers(socket, io) {
   socket.on('ping', () => socket.emit('pong'));
 
   socket.on('rooms:get', () => {
@@ -1095,7 +931,7 @@ socket.on('vote:forceClose', ({ roomId, clientId }) => {
 
 
 
-  socket.on('joinRoom', ({ roomId, nick, clientId }) => {
+  socket.on('joinRoom', ({ roomId, nick, clientId, avatarUrl }) => {
     const room = ensureRoom(roomId);
     if (!room) {
       socket.emit('room:error', { reason: 'not_found', roomId });
@@ -1143,6 +979,9 @@ if (emptyRoomTimers.has(room.code)) {
       if (cleanNick && !/^guest$/i.test(cleanNick) && !/^гость$/i.test(cleanNick)) {
         existing.nick = cleanNick;
       }
+      if (typeof avatarUrl === 'string' && avatarUrl.trim()) {
+        existing.avatarUrl = avatarUrl.trim();
+      }
     } else {
       const seat = room.nextSeat++;
       room.players.set(clientId, {
@@ -1153,6 +992,7 @@ if (emptyRoomTimers.has(room.code)) {
         seat,
         revealed: {},
         revealedKeys: [],
+        avatarUrl: (typeof avatarUrl === 'string' && avatarUrl.trim()) ? avatarUrl.trim() : null,
       });
     }
 
@@ -1162,11 +1002,16 @@ if (emptyRoomTimers.has(room.code)) {
     io.to(roomId).emit('presence', presencePayload(room));
     broadcastRooms(io);
 
+    // Обновляем статистику при присоединении игрока
+    if (!existing) {
+      updateStats('player_joined', roomId);
+    }
+
 
     if (room.started) {
   ensureTurnState(room);
   resetSkipVotes(room); // сбросить голоса при изменении состава
-  ensureRoundState(room);
+  rounds.ensureRoundState(room);
   emitRoundState(room);
   io.to(roomId).emit('game:turn', { roomId, currentTurnId: room.currentTurnId });
   emitGameState(roomId, room);
@@ -1215,7 +1060,7 @@ if (room.lastVote) {
     room.vote.speakingIdx = idx + 1;
     room.vote.endsAt = now + 60;         // новый спич = 60 сек
     broadcastVote(room);                  // обновим у всех баннер/индикаторы
-    scheduleVoteTick(room); // ← чтобы таймер спичей продолжил тикать
+    timers.scheduleVoteTick(room, ioRef); // ← чтобы таймер спичей продолжил тикать
     
   } else {
     // Все выступили — переходим к голосованию (90 сек тишины)
@@ -1241,6 +1086,10 @@ if (room.lastVote) {
     if (room.players.has(cid)) {
       room.players.delete(cid);
       socket.leave(roomId);
+      
+      // Обновляем статистику при выходе игрока
+      updateStats('player_left', roomId);
+      
       if (room.hostClientId === cid) {
         const first = sortBySeat(Array.from(room.players.values()))[0]?.clientId || null;
         room.hostClientId = first;
@@ -1279,7 +1128,7 @@ if (room.started) {
   
   beginTurn(roomId, room.currentTurnId);
   ensureTurnState(room);
-  ensureRoundState(room);
+  rounds.ensureRoundState(room);
   emitRoundState(room);
   emitGameState(roomId, room);
 }
@@ -1421,9 +1270,20 @@ if (room.lastVote) {
       return;
     }
 
+    room.revealAll = false;
+    room.hostRevealHands = false;
+    room.editorEnabled = false;
+    room.paused = false;
+    io.to(roomId).emit('game:editorState', { roomId, enabled: room.editorEnabled });
+    socket.emit('game:revealAll:host', { roomId, hands: {} });
+
     room.started = true;
+    
+    // Обновляем статистику при старте игры
+    updateStats('game_started', roomId);
+    
 ensureTurnState(room);
-ensureRoundState(room);
+rounds.ensureRoundState(room);
 
 // 👇 сначала генерируем бункер/катаклизм и раздаём руки
 let places = Math.max(1, Math.floor(room.players.size / 2));
@@ -1499,7 +1359,7 @@ if (room.vote && room.vote.phase && room.vote.phase !== 'idle') {
 
 
     // 🔒 проверки раунда
-  ensureRoundState(room);
+  rounds.ensureRoundState(room);
   const playerId = socket.clientId || player.clientId;
   const alreadyProf = player.revealed?.profession || (player.revealedKeys || []).includes('profession');
   const profHiddenForever = player.hiddenKey === 'profession';
@@ -1525,7 +1385,7 @@ if (room.vote && room.vote.phase && room.vote.phase !== 'idle') {
     player.revealed[nextKey] = player.hand[nextKey];
 
     // 📈 учёт квоты раунда (ORDER — только обычные ключи)
-  bumpRevealedThisRound(room, playerId);
+  rounds.bumpRevealedThisRound(room, playerId);
 emitRoundState(room);
 
 // 1) Сначала ОБЯЗАТЕЛЬНО разошлём обновлённое состояние с открытой ячейкой
@@ -1554,7 +1414,7 @@ io.to(roomId).emit('game:state', {
 
 // 2) Если квота закрыта — мягко стартуем спичи после микро-паузы,
 //    и только если голосование ещё не начато
-if (allReachedQuota(room)) {
+if (rounds.allReachedQuota(room)) {
   setTimeout(() => {
     const r = ensureRoom(roomId);
     if (!r) return;
@@ -1578,17 +1438,17 @@ if (allReachedQuota(room)) {
 
     // во время голосования разрешаем раскрывать только спец-возможности
 if (room.vote && room.vote.phase && room.vote.phase !== 'idle') {
-  if (!isAbilityKey(key)) return;
+  if (!rounds.isAbilityKey(key)) return;
 }
 
     const player = Array.from(room.players.values()).find(p => p.id === socket.id);
     if (!player || !player.hand) return;
 
 
-      ensureRoundState(room);
+      rounds.ensureRoundState(room);
 
 const playerId = socket.clientId || player.clientId; // чей reveal
-const ability = isAbilityKey(key);
+const ability = rounds.isAbilityKey(key);
 
 // 1-й раунд: сначала профессия
 const alreadyProf = player.revealed?.profession || (player.revealedKeys || []).includes('profession');
@@ -1620,7 +1480,7 @@ if (!ability && done >= room.round.quota) {
 
     // учёт квоты (только для обычных характеристик)
 if (!ability) {
-  bumpRevealedThisRound(room, playerId);
+  rounds.bumpRevealedThisRound(room, playerId);
   emitRoundState(room);
 }
 
@@ -1649,7 +1509,7 @@ io.to(roomId).emit('game:state', {
 });
 
 // 2) Если квота достигнута (и это была НЕ ability) — запускаем спичи через микро-паузу
-if (!ability && allReachedQuota(room)) {
+if (!ability && rounds.allReachedQuota(room)) {
   setTimeout(() => {
     const r = ensureRoom(roomId);
     if (!r) return;
@@ -1660,6 +1520,102 @@ if (!ability && allReachedQuota(room)) {
   return;
 }
   });
+
+socket.on('game:revealAll:toggle', ({ roomId, enabled }) => {
+  const room = ensureRoom(roomId);
+  if (!room) return;
+
+  const requesterId = socket.clientId;
+  if (!requesterId || room.hostClientId !== requesterId) return;
+
+  room.revealAll = !!enabled;
+
+  if (room.revealAll && room.hostRevealHands) {
+    room.hostRevealHands = false;
+    socket.emit('game:revealAll:host', { roomId, hands: {} });
+  }
+
+  emitGameState(roomId, room);
+});
+
+socket.on('game:revealAll:host', ({ roomId, enabled }) => {
+  const room = ensureRoom(roomId);
+  if (!room) return;
+
+  const requesterId = socket.clientId;
+  if (!requesterId || room.hostClientId !== requesterId) return;
+
+  room.hostRevealHands = !!enabled;
+
+  if (room.hostRevealHands) {
+    emitHostHands(room);
+  } else {
+    socket.emit('game:revealAll:host', { roomId, hands: {} });
+  }
+});
+
+socket.on('game:editorState', ({ roomId }) => {
+  const room = ensureRoom(roomId);
+  if (!room) return;
+
+  socket.emit('game:editorState', { roomId, enabled: !!room.editorEnabled });
+});
+
+socket.on('game:editor:toggle', ({ roomId, enabled }) => {
+  const room = ensureRoom(roomId);
+  if (!room) return;
+
+  const requesterId = socket.clientId;
+  if (!requesterId || room.hostClientId !== requesterId) return;
+
+  room.editorEnabled = !!enabled;
+
+  io.to(roomId).emit('game:editorState', { roomId, enabled: room.editorEnabled });
+  emitGameState(roomId, room);
+});
+
+socket.on('game:pause', ({ roomId, paused }) => {
+  const room = ensureRoom(roomId);
+  if (!room || !room.started || room.gameOver) return;
+
+  const requesterId = socket.clientId;
+  if (!requesterId || room.hostClientId !== requesterId) return;
+
+  room.paused = !!paused;
+  emitGameState(roomId, room);
+});
+
+socket.on('game:reroll', ({ roomId, targetId, key }) => {
+  const room = ensureRoom(roomId);
+  if (!room || !room.started || !room.editorEnabled) return;
+
+  const requesterId = socket.clientId;
+  if (!requesterId || room.hostClientId !== requesterId) return;
+
+  const safeKey = typeof key === 'string' ? key : '';
+  if (!HAND_KEYS.includes(safeKey)) return;
+
+  const target = getRoomPlayerById(room, targetId);
+  if (!target || !target.hand) return;
+
+  const nextValue = randomValueForKey(safeKey, target.hand);
+  if (nextValue == null || nextValue === undefined) return;
+
+  target.hand[safeKey] = nextValue;
+  if (target.revealed && Object.prototype.hasOwnProperty.call(target.revealed, safeKey)) {
+    target.revealed[safeKey] = nextValue;
+  }
+
+  emitGameState(roomId, room);
+
+  if (target.id) {
+    io.to(target.id).emit('game:you', {
+      hand: target.hand,
+      hiddenKey: target.hiddenKey ?? null,
+      revealedKeys: target.revealedKeys || [],
+    });
+  }
+});
 
   // Клиент просит перейти к следующему игроку (после успешного reveal на клиенте)
 socket.on('game:nextTurn', ({ roomId }) => {
@@ -1766,12 +1722,14 @@ socket.on('game:turn:force', ({ roomId, playerId }) => {
     emitGameState(room.code, room);
   }
   // Раундовую инфу можно отправить без смены хода
-  ensureRoundState(room);
+  rounds.ensureRoundState(room);
   emitRoundState(room);
 }
   }
   });
-});
+}
+
+initGameSockets(io, registerSocketHandlers);
 
 // server.listen(PORT, () => {
 //   console.log(`HTTP+WS запущены на http://localhost:${PORT} (WS тот же порт)`);

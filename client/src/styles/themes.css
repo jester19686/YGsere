@@ -162,10 +162,15 @@ html, body { min-height: 100%; }
 
 /* «Стеклянная» карточка/панель */
 .rust-panel {
-  background-color: var(--c-card);
+  background-color: color-mix(in lab, var(--c-card) 92%, rgba(255,255,255,0.04));
   border: 1px solid var(--c-border);
-  box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255,255,255,.06);
-  backdrop-filter: blur(2px);
+  border-radius: calc(var(--radius, 12px) + 2px);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.05),
+    0 14px 32px rgba(0,0,0,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  background-image: linear-gradient(140deg, rgba(255,255,255,0.05) 0%, transparent 65%);
+  backdrop-filter: blur(8px);
 }
 
 /* Таблица в стиле «металл/стекло» */
@@ -177,18 +182,39 @@ html, body { min-height: 100%; }
 }
 
 /* Кнопка «старого» вида, чтобы не ломать текущие места */
+
 .themed-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--btn-text);
-  border: 1px solid var(--btn-outline);
-  background: linear-gradient(180deg, var(--btn-fill) 0%, color-mix(in lab, var(--btn-fill) 70%, black) 100%);
+  border: 1px solid color-mix(in lab, var(--btn-fill) 70%, black);
+  background: linear-gradient(160deg, color-mix(in lab, var(--btn-fill) 85%, white) 0%, color-mix(in lab, var(--btn-fill) 60%, black) 100%);
   box-shadow:
-    inset 0 1px 0 var(--btn-emboss-top),
-    inset 0 -2px 0 var(--btn-emboss-bottom),
-    var(--btn-shadow);
-  transition: filter .12s ease, transform .06s ease;
+    0 12px 26px rgba(0,0,0,0.45),
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -3px 0 rgba(0,0,0,0.55);
+  transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
 }
-.themed-btn:hover { filter: brightness(1.04); }
-.themed-btn:active { transform: translateY(1px); }
+.themed-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 32px rgba(245, 158, 11, 0.45);
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.themed-btn:hover {
+  filter: brightness(1.05);
+}
+.themed-btn:hover::after {
+  opacity: 0.9;
+}
+.themed-btn:active {
+  transform: translateY(1px);
+}
 
 /* ───────────────────────────────────────────────────────────── */
 /* ✅ Универсальный полноэкранный фон для ЛЮБОЙ темы (как в лобби).

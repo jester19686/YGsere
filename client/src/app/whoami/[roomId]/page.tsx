@@ -18,7 +18,7 @@ type Hand = {
   extra: string;
 };
 type GameYou = { hand: Hand; hiddenKey: keyof Hand | null; revealedKeys: (keyof Hand)[] };
-type PublicPlayer = { id: string; nick: string; revealed: Partial<Hand> };
+type PublicPlayer = { id: string; nick: string; avatarUrl?: string | null; revealed: Partial<Hand> };
 type GameStatePayload = { roomId: string; phase: 'reveal'; players: PublicPlayer[] };
 
 type PresencePlayer = { id: string; nick: string };
@@ -70,7 +70,12 @@ export default function WhoAmIPage() {
     socketRef.current = s;
 
     const joinAndSync = () => {
-      s.emit('joinRoom', { roomId, nick, clientId: getClientId() }); // 👈 передаём clientId
+      try {
+        const av = typeof window !== 'undefined' ? window.localStorage.getItem('bunker:avatar') : null;
+        s.emit('joinRoom', { roomId, nick, clientId: getClientId(), avatarUrl: av || undefined }); // 👈 передаём clientId + avatar
+      } catch {
+        s.emit('joinRoom', { roomId, nick, clientId: getClientId() });
+      }
       s.emit('room:getState', { roomId });
       s.emit('game:sync', { roomId });
     };
@@ -159,7 +164,17 @@ export default function WhoAmIPage() {
     return (
       <tr key={p.id} className="border-t border-gray-800 align-top">
         <td className="px-4 py-4">
-          <div className="font-medium">{p.nick}{p.id === hostId ? ' 👑' : ''}</div>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full overflow-hidden border border-gray-700 bg-gray-800 flex items-center justify-center">
+              {p.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.avatarUrl} alt={p.nick} className="w-full h-full object-cover" />
+              ) : (
+                <span>👤</span>
+              )}
+            </div>
+            <div className="font-medium">{p.nick}{p.id === hostId ? ' 👑' : ''}</div>
+          </div>
           <div className="text-xs text-gray-500 break-words">id: {p.id}</div>
         </td>
         <td className="px-4 py-4">

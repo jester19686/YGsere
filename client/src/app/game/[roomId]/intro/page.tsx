@@ -33,6 +33,9 @@ const LS_NICK = 'bunker:nick';
 const LS_ROOM = 'bunker:lastRoom';
 
 
+
+
+
 const THEMES = ['amber', 'lobby'] as const;
 type ThemeName = typeof THEMES[number];
 const isThemeName = (v: unknown): v is ThemeName =>
@@ -54,6 +57,9 @@ export default function GameIntroPage() {
   const socketRef = useRef<Socket | null>(null);
   // const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4000';
   const myClientId = getClientId();
+
+  
+
 
   // Сохраняем комнату в LS, чтобы ре-джойн после F5 был гарантирован
 useEffect(() => {
@@ -112,7 +118,12 @@ useEffect(() => {
      const n = localStorage.getItem(LS_NICK);
      if (n && n.trim()) savedNick = n.trim();
    } catch {}
-   s.emit('joinRoom', { roomId, nick: savedNick, clientId: myClientId });
+   try {
+     const av = typeof window !== 'undefined' ? localStorage.getItem('bunker:avatar') : null;
+     s.emit('joinRoom', { roomId, nick: savedNick, clientId: myClientId, avatarUrl: av || undefined });
+   } catch {
+     s.emit('joinRoom', { roomId, nick: savedNick, clientId: myClientId });
+   }
    s.emit('room:getState', { roomId });
    s.emit('game:sync', { roomId });
  };

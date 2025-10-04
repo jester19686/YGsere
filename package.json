@@ -5,7 +5,26 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "bot": "node server-bot/index.js",
+    "bot:queue": "node server-bot/index-with-queues.js",
+    "test:quick": "node quick_test.js",
+    "test:sim": "node game_simulator.js",
+    "test:massive": "node massive_test.js",
+    "test:stress": "node stress_test.js",
+    "test:queue": "node test-queue-system.js",
+    "test:image": "node test-image-processing.js",
+    "test:image:optimized": "node test-optimized-image-processing.js",
+    "bot:optimized": "node start-optimized-bot.js",
+    "stress:test": "node run-stress-test.js",
+    "stress:quick": "node run-stress-test.js quick",
+    "stress:medium": "node run-stress-test.js medium", 
+    "stress:intensive": "node run-stress-test.js intensive",
+    "stress:peak": "node run-stress-test.js peak",
+    "stress:endurance": "node run-stress-test.js endurance",
+    "stress:production": "node run-stress-test.js production",
+    "stress:help": "node run-stress-test.js help",
+    "monitor": "node -e \"const MonitoringServer = require('./lib/MonitoringServer'); const QueueManager = require('./lib/QueueManager'); (async () => { const qm = new QueueManager(); const ms = new MonitoringServer(qm, 3001); await ms.start(); })();\""
   },
   "keywords": [],
   "author": "",
@@ -14,7 +33,10 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.19.2",
-    "socket.io": "^4.8.1"
+    "https-proxy-agent": "^7.0.6",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "telegraf": "^4.16.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

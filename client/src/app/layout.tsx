@@ -6,13 +6,17 @@ import Script from "next/script"; // 👈 ДОБАВЛЕНО
 
 import type { Metadata } from 'next'
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+};
+
 export const metadata: Metadata = {
-  title: 'Bunker',
-  description: 'Онлайн-игра',
-  icons: [{ rel: 'icon', url: '/favicon.ico' }],
-  // важно для мобилки
-  viewport:
-    'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content',
+  title: "Bunker Online",
+  description: "Онлайн-игра",
+  icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
 
