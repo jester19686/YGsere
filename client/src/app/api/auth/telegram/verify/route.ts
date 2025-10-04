@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     })
     const json = await res.json().catch(() => ({}))
     return NextResponse.json(json, { status: res.status })
-  } catch (e) {
+  } catch {
     return NextResponse.json({ ok: false, error: 'proxy_error' })
   }
 }

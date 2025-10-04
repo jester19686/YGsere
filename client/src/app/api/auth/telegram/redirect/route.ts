@@ -14,7 +14,7 @@ export async function GET(req: Request) {
       return NextResponse.redirect(new URL('/lobby', url.origin))
     }
     return NextResponse.json({ ok: false, error: 'verify_failed', details: data }, { status: 200 })
-  } catch (e) {
+  } catch {
     return NextResponse.json({ ok: false, error: 'redirect_error' }, { status: 200 })
   }
 }

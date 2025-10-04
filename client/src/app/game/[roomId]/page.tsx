@@ -334,7 +334,6 @@ const getProfessionIcon = (player: PublicPlayer, profession?: string): string =>
 
 // 👇 Функция для расчета оптимальности параметров бункера
 const calculateBunkerOptimality = (bunker: BunkerInfo, activePlayersCount: number): BunkerOptimality => {
-  const maxPlaces = bunker.places || 0;
   const currentLoad = activePlayersCount;
   
   // Расчет оптимальности площади (м² на человека)
@@ -436,6 +435,7 @@ type KickVoteRowProps = {
 
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function KickVoteRow({ meId, player, count, totalVoters, hasVoted, onVote }: KickVoteRowProps) {
 
   const isSelf = player.id === meId;
@@ -3087,7 +3087,6 @@ useEffect(() => {
             })
             .map((p) => {
             const isWinner = gameOver && winners.includes(p.id);
-            const countdown = serverTurnSeconds;
 
             return (
               <tr
