@@ -2252,9 +2252,23 @@ useEffect(() => {
           {/* Текст поверх с тенью для читаемости */}
           <div className="px-6 md:px-10 lg:px-16 xl:px-24 py-10 text-center max-w-5xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-extrabold mb-5 text-red-500" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
-              {cataclysm.image.includes('winter') ? 'Ядерная зима' :
+              {cataclysm.image.includes('outbreak') ? 'Пандемия' :
+               cataclysm.image.includes('winter') ? 'Ядерная зима' :
                cataclysm.image.includes('biocloud') ? 'Биологическая угроза' :
-               cataclysm.image.includes('outbreak') ? 'Пандемия' :
+               cataclysm.image.includes('nuclear-war') ? 'Ядерная война' :
+               cataclysm.image.includes('meteor-impact') ? 'Падение метеорита' :
+               cataclysm.image.includes('global-flood') ? 'Всемирный потоп' :
+               cataclysm.image.includes('ai-rebellion') ? 'Восстание машин' :
+               cataclysm.image.includes('solar-storm') ? 'Солнечная буря' :
+               cataclysm.image.includes('deadly-virus') ? 'Смертельный вирус' :
+               cataclysm.image.includes('alien-attack') ? 'Вторжение пришельцев' :
+               cataclysm.image.includes('mega-quake') ? 'Мегаземлетрясение' :
+               cataclysm.image.includes('super-volcano') ? 'Супервулкан' :
+               cataclysm.image.includes('sun-expansion') ? 'Расширение Солнца' :
+               cataclysm.image.includes('reality-glitch') ? 'Сбой реальности' :
+               cataclysm.image.includes('grey-goo') ? 'Серая слизь' :
+               cataclysm.image.includes('meme-apocalypse') ? 'Мем-апокалипсис' :
+               cataclysm.image.includes('elder-gods') ? 'Пробуждение древних богов' :
                cataclysm.title}
             </h2>
             <p className="text-base md:text-lg leading-7 text-white" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
