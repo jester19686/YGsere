@@ -539,7 +539,7 @@ function checkGameOver(room) {
     room.gameOver = true;
     room.winners = [...activeIds];
 
-    clearTurnTimer(room.code);     // ⬅️ добавили
+    timers.clearTurnTimer(room.code, room);     // ⬅️ исправили: используем timers.clearTurnTimer
     room.vote = { phase: 'idle' }; // ⬅️ добавили
     resetSkipVotes(room);          // ⬅️ добавили
 
