@@ -25,12 +25,17 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
   const widgetMountedRef = useRef(false);
   const widgetContainerRef = useRef<HTMLDivElement | null>(null);
   const [widgetError, setWidgetError] = useState<string | null>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-  // Автоматически загружаем виджет при открытии модалки
+  // Автоматически загружаем виджет при открытии модалки и сбрасываем состояние
   useEffect(() => {
     if (open && !widgetMountedRef.current) {
       console.log('[TG Widget] Модалка открыта, автоматически загружаем виджет');
+      setIsAuthenticating(false);
       handleTelegramAuthInternal();
+    }
+    if (!open) {
+      setIsAuthenticating(false);
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -47,6 +52,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
       (window as any).__tgAuthCb = async (user: any) => {
         console.log('[TG Auth] Callback вызван с user:', user);
         console.log('[TG Auth] API_BASE:', API_BASE);
+        setIsAuthenticating(true);
         try {
           const url = `${API_BASE}/api/auth/telegram/verify`;
           console.log('[TG Auth] Отправка запроса на:', url);
@@ -64,18 +70,18 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
             console.log('[TG Auth] Успех! Имя:', name, 'Avatar:', avatarUrl);
             if (name) onChangeNick(name);
             try { if (avatarUrl) localStorage.setItem('bunker:avatar', avatarUrl); } catch {}
-            console.log('[TG Auth] Ждём обновления состояния и вызываем onConfirm()');
-            // Даём React время обновить состояние nick перед вызовом onConfirm
-            setTimeout(() => {
-              onConfirm();
-            }, 50);
+            console.log('[TG Auth] Вызываем onConfirm() для автоматической авторизации');
+            // Вызываем onConfirm немедленно для автоматического закрытия модалки
+            onConfirm();
           } else {
             console.error('[TG Auth] Неудача:', data);
             setWidgetError('Не удалось подтвердить данные Telegram');
+            setIsAuthenticating(false);
           }
         } catch (e) {
           console.error('[TG Auth] Ошибка:', e);
           setWidgetError('Ошибка связи с сервером');
+          setIsAuthenticating(false);
         }
       };
       const botUsername = process.env.NEXT_PUBLIC_TG_BOT_USERNAME || 'BunkerAuthbot';
@@ -154,53 +160,68 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
                 transition={{ delay: 0.2 }}
                 ref={widgetContainerRef}
                 className="flex justify-center min-h-[46px]"
+                style={{ transform: 'scale(1.3)', transformOrigin: 'center' }}
               />
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/20"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-transparent text-gray-400">или</span>
-                </div>
-              </div>
-
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 }}
-                className="space-y-4"
-              >
-                <div className="relative">
-                  <input
-                    autoFocus
-                    className="w-full p-4 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20 focus:bg-white/15 transition-all duration-300 peer pl-12"
-                    placeholder="Введите ваш никнейм"
-                    value={nick}
-                    onChange={(e) => onChangeNick(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && nick.trim()) onConfirm(); }}
-                    aria-label="Никнейм"
-                  />
-                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 peer-focus:text-indigo-400 transition-colors duration-300" />
-                </div>
-
-                <motion.button
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={onConfirm}
-                  disabled={!nick.trim()}
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-semibold shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 disabled:shadow-gray-500/25 transition-all duration-300 flex items-center justify-center gap-2 group"
+              {isAuthenticating ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col items-center justify-center py-8 space-y-4"
                 >
-                  <span>Продолжить</span>
+                  <div className="w-16 h-16 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+                  <p className="text-white font-semibold">Авторизация...</p>
+                  <p className="text-gray-400 text-sm">Подождите немного</p>
+                </motion.div>
+              ) : (
+                <>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-white/20"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-4 bg-transparent text-gray-400">или</span>
+                    </div>
+                  </div>
+
                   <motion.div
-                    initial={{ x: 0 }}
-                    whileHover={{ x: 4 }}
-                    transition={{ duration: 0.2 }}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="space-y-4"
                   >
-                    →
+                    <div className="relative">
+                      <input
+                        autoFocus
+                        className="w-full p-4 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20 focus:bg-white/15 transition-all duration-300 peer pl-12"
+                        placeholder="Введите ваш никнейм"
+                        value={nick}
+                        onChange={(e) => onChangeNick(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && nick.trim()) onConfirm(); }}
+                        aria-label="Никнейм"
+                      />
+                      <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 peer-focus:text-indigo-400 transition-colors duration-300" />
+                    </div>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={onConfirm}
+                      disabled={!nick.trim()}
+                      className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-semibold shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 disabled:shadow-gray-500/25 transition-all duration-300 flex items-center justify-center gap-2 group"
+                    >
+                      <span>Продолжить</span>
+                      <motion.div
+                        initial={{ x: 0 }}
+                        whileHover={{ x: 4 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        →
+                      </motion.div>
+                    </motion.button>
                   </motion.div>
-                </motion.button>
-              </motion.div>
+                </>
+              )}
             </div>
 
             <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full opacity-60"></div>
