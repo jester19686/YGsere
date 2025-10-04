@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
-import { useEffect, useMemo, useState } from 'react';
-import { Play, Users, Shield, Zap, Star, ArrowRight, Clock, Trophy } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Play, Users, Shield, Zap } from 'lucide-react';
 
 type Stats = { activePlayers: number; activeGames: number; completedGames: number };
 

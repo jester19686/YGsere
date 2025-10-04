@@ -24,7 +24,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
 
   const widgetMountedRef = useRef(false);
   const widgetContainerRef = useRef<HTMLDivElement | null>(null);
-  const [widgetError, setWidgetError] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // Автоматически загружаем виджет при открытии модалки и сбрасываем состояние
@@ -75,12 +74,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
             onConfirm(name);
           } else {
             console.error('[TG Auth] Неудача:', data);
-            setWidgetError('Не удалось подтвердить данные Telegram');
             setIsAuthenticating(false);
           }
         } catch (e) {
           console.error('[TG Auth] Ошибка:', e);
-          setWidgetError('Ошибка связи с сервером');
           setIsAuthenticating(false);
         }
       };
@@ -102,7 +99,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
       };
       script.onerror = (err) => {
         console.error('[TG Widget] Ошибка загрузки скрипта:', err);
-        setWidgetError('Не удалось загрузить виджет Telegram');
       };
       
       if (widgetContainerRef.current) {
@@ -114,9 +110,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
       }
     } catch (err) {
       console.error('[TG Widget] Исключение при создании виджета:', err);
-      setWidgetError('Не удалось встроить виджет Telegram');
     }
-  }, [API_BASE, onChangeNick, onConfirm, onTelegramAuth]);
+  }, [API_BASE, onChangeNick, onConfirm]);
 
   return (
     <AnimatePresence initial={false}>

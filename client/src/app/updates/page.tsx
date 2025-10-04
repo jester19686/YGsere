@@ -1,5 +1,5 @@
 import Navigation from '@/components/Navigation';
-import { Calendar, Zap, Bug, Plus, ArrowLeft } from 'lucide-react';
+import { Calendar, Zap, Plus, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 const Updates = () => {

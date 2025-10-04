@@ -74,9 +74,6 @@ export default function LobbyPage() {
 
   // 👇 ДОБАВЛЕНО: флаг завершения проверки localStorage (чтобы не редиректить раньше времени)
   const [nickChecked, setNickChecked] = useState(false);
-
-  // лобби
-  const [log, setLog] = useState<string[]>([]);
   const [room, setRoom] = useState('');
   const [players, setPlayers] = useState<PresencePlayer[]>([]);
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
@@ -140,7 +137,7 @@ useEffect(() => {
       s.emit('room:getState', { roomId: savedRoom });
     }
   } catch {}
-}, [isNickSet, nick]);
+}, [isNickSet, nick, avatarUrl]);
 
 
   useEffect(() => {
@@ -238,7 +235,6 @@ useEffect(() => {
 
     const onConnect = () => {
       setStatus('connected');
-      setLog((l) => [`✅ connected: ${s.id}`, ...l].slice(0, 200)); // log cap
 
       // запросим текущее состояние комнат
       s.emit('rooms:get');
@@ -256,7 +252,6 @@ useEffect(() => {
 
     const onDisconnect = () => {
       setStatus('disconnected');
-      setLog((l) => ['❌ disconnected', ...l].slice(0, 200)); // log cap
       setPlayers([]);
       setCurrentRoom(null);
       setStarted(false);
@@ -270,7 +265,6 @@ useEffect(() => {
     const onPresence = (payload: PresencePayload) => {
       setPlayers(sortBySeat(payload.players));
       setCurrentRoom(payload.roomId);
-      setLog((l) => [`👥 presence: ${JSON.stringify(payload)}`, ...l].slice(0, 200)); // log cap
     };
 
     const onRoomState = (payload: RoomStatePayload) => {
@@ -279,35 +273,26 @@ useEffect(() => {
       setHostId(payload.hostId);
       setStarted(payload.started);
       setRoomGame(payload.game ?? 'bunker');
-      setLog((l) => [
-        `📢 state: ${JSON.stringify({
-          hostId: payload.hostId,
-          started: payload.started,
-          game: payload.game,
-        })}`,
-        ...l,
-      ].slice(0, 200)); // log cap
       try {
         window.localStorage.setItem(LS_ROOM, payload.roomId);
       } catch {}
     };
 
-    const onRoomError = (e: { reason: string; roomId: string; min?: number }) => {
+    const onRoomError = (err: { reason: string; roomId: string; min?: number }) => {
       const msg =
-        e.reason === 'not_found'
-          ? `Лобби ${e.roomId} не найдено`
-          : e.reason === 'full'
-          ? `Лобби ${e.roomId} заполнено`
-          : e.reason === 'game_started'
-          ? `В лобби ${e.roomId} уже началась игра`
-          : e.reason === 'not_host'
+        err.reason === 'not_found'
+          ? `Лобби ${err.roomId} не найдено`
+          : err.reason === 'full'
+          ? `Лобби ${err.roomId} заполнено`
+          : err.reason === 'game_started'
+          ? `В лобби ${err.roomId} уже началась игра`
+          : err.reason === 'not_host'
           ? `Старт может нажать только хост`
-          : e.reason === 'not_enough_players'
-          ? `Мало игроков (минимум ${e.min ?? 2})`
-          : `Ошибка для лобби ${e.roomId}`;
-      setLog((l) => [`⚠️ ${msg}`, ...l].slice(0, 200)); // log cap
-      showNotice(msg, e.reason === 'not_found' ? 'Проверьте код и попробуйте ещё раз' : undefined, 'error');
-      if (e.reason === 'not_found') {
+          : err.reason === 'not_enough_players'
+          ? `Мало игроков (минимум ${err.min ?? 2})`
+          : `Ошибка для лобби ${err.roomId}`;
+      showNotice(msg, err.reason === 'not_found' ? 'Проверьте код и попробуйте ещё раз' : undefined, 'error');
+      if (err.reason === 'not_found') {
         try {
           window.localStorage.removeItem(LS_ROOM);
         } catch {}
@@ -358,7 +343,7 @@ useEffect(() => {
       s.off('room:error', onRoomError);
       s.off('rooms:update', onRoomsUpdate);
     };
-  }, [isNickSet, nick]);
+  }, [isNickSet, nick, avatarUrl]);
 
   // автопереход в экран игры после старта (оставил как было)
     // Если пришли из /game/... с флагом nf=1 — покажем уведомление
