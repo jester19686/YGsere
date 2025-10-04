@@ -32,6 +32,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
     try {
       if (widgetMountedRef.current) return;
       widgetMountedRef.current = true;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__tgAuthCb = async (user: any) => {
         try {
           const res = await fetch(`${API_BASE}/api/auth/telegram/verify`, {
