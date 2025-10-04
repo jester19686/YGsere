@@ -632,9 +632,10 @@ useEffect(() => {
             open={nickChecked && !isNickSet}
             nick={nick}
             onChangeNick={(v) => setNick(v)}
-            onConfirm={() => {
-              const v = nick.trim();
+            onConfirm={(nickOverride) => {
+              const v = (nickOverride || nick).trim();
               if (!v) return;
+              setNick(v);
               try { window.localStorage.setItem(LS_NICK, v); } catch {}
               setIsNickSet(true);
             }}

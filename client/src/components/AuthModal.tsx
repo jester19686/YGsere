@@ -9,7 +9,7 @@ type AuthModalProps = {
   open: boolean;
   nick: string;
   onChangeNick: (value: string) => void;
-  onConfirm: () => void;
+  onConfirm: (nickOverride?: string) => void;
   onClose?: () => void;
   onTelegramAuth?: () => void;
 };
@@ -71,8 +71,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
             if (name) onChangeNick(name);
             try { if (avatarUrl) localStorage.setItem('bunker:avatar', avatarUrl); } catch {}
             console.log('[TG Auth] Вызываем onConfirm() для автоматической авторизации');
-            // Вызываем onConfirm немедленно для автоматического закрытия модалки
-            onConfirm();
+            // Вызываем onConfirm с именем напрямую для автоматического закрытия модалки
+            onConfirm(name);
           } else {
             console.error('[TG Auth] Неудача:', data);
             setWidgetError('Не удалось подтвердить данные Telegram');
@@ -154,14 +154,16 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
 
             <div className="space-y-6">
               {/* Контейнер для Telegram Login Widget - загружается автоматически */}
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                ref={widgetContainerRef}
-                className="flex justify-center min-h-[46px]"
-                style={{ transform: 'scale(1.3)', transformOrigin: 'center' }}
-              />
+              {!isAuthenticating && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  ref={widgetContainerRef}
+                  className="flex justify-center min-h-[46px]"
+                  style={{ transform: 'scale(1.3)', transformOrigin: 'center' }}
+                />
+              )}
 
               {isAuthenticating ? (
                 <motion.div
