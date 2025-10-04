@@ -3,7 +3,7 @@
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Send } from 'lucide-react';
+import { User } from 'lucide-react';
 
 type AuthModalProps = {
   open: boolean;
@@ -26,7 +26,13 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
   const widgetContainerRef = useRef<HTMLDivElement | null>(null);
   const [widgetError, setWidgetError] = useState<string | null>(null);
 
-  useEffect(() => {}, []);
+  // Автоматически загружаем виджет при открытии модалки
+  useEffect(() => {
+    if (open && !widgetMountedRef.current) {
+      console.log('[TG Widget] Модалка открыта, автоматически загружаем виджет');
+      handleTelegramAuthInternal();
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTelegramAuthInternal = useCallback(() => {
     console.log('[TG Widget] Начало инициализации виджета');
@@ -141,21 +147,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
             </div>
 
             <div className="space-y-6">
-              <motion.button
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleTelegramAuthInternal}
-                className="w-full p-4 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-300 flex items-center justify-center gap-3 group"
-              >
-                <Send className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
-                <span>Войти через Telegram</span>
-              </motion.button>
-
-              {/* Контейнер для Telegram Login Widget */}
-              <div ref={widgetContainerRef} className="flex justify-center" />
+              {/* Контейнер для Telegram Login Widget - загружается автоматически */}
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                ref={widgetContainerRef}
+                className="flex justify-center min-h-[46px]"
+              />
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
