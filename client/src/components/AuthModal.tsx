@@ -29,9 +29,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
   useEffect(() => {}, []);
 
   const handleTelegramAuthInternal = useCallback(() => {
+    console.log('[TG Widget] Начало инициализации виджета');
     try {
-      if (widgetMountedRef.current) return;
+      if (widgetMountedRef.current) {
+        console.log('[TG Widget] Виджет уже смонтирован, пропускаем');
+        return;
+      }
       widgetMountedRef.current = true;
+      console.log('[TG Widget] Регистрируем callback функцию');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__tgAuthCb = async (user: any) => {
         console.log('[TG Auth] Callback вызван с user:', user);
@@ -65,6 +70,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
         }
       };
       const botUsername = process.env.NEXT_PUBLIC_TG_BOT_USERNAME || 'BunkerAuthbot';
+      console.log('[TG Widget] Bot username:', botUsername);
       const script = document.createElement('script');
       script.src = 'https://telegram.org/js/telegram-widget.js?22';
       script.async = true;
@@ -73,11 +79,25 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
       script.setAttribute('data-userpic', 'false');
       script.setAttribute('data-request-access', 'write');
       script.setAttribute('data-onauth', '__tgAuthCb(user)');
+      
+      script.onload = () => {
+        console.log('[TG Widget] Скрипт виджета загружен');
+        console.log('[TG Widget] Callback зарегистрирован:', typeof (window as any).__tgAuthCb);
+      };
+      script.onerror = (err) => {
+        console.error('[TG Widget] Ошибка загрузки скрипта:', err);
+        setWidgetError('Не удалось загрузить виджет Telegram');
+      };
+      
       if (widgetContainerRef.current) {
+        console.log('[TG Widget] Добавляем скрипт в DOM');
         widgetContainerRef.current.innerHTML = '';
         widgetContainerRef.current.appendChild(script);
+      } else {
+        console.error('[TG Widget] widgetContainerRef.current is null!');
       }
-    } catch {
+    } catch (err) {
+      console.error('[TG Widget] Исключение при создании виджета:', err);
       setWidgetError('Не удалось встроить виджет Telegram');
     }
   }, [API_BASE, onChangeNick, onConfirm, onTelegramAuth]);
