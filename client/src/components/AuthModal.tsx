@@ -29,15 +29,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
   useEffect(() => {}, []);
 
   const handleTelegramAuthInternal = useCallback(() => {
-    // Временная заглушка: авторизуем локально и закрываем модалку
-    try {
-      const generated = (nick && nick.trim()) ? nick.trim() : `tg_${Math.random().toString(36).slice(2,8).toUpperCase()}`;
-      onChangeNick(generated);
-      try { localStorage.setItem('bunker:nick', generated); } catch {}
-      onConfirm();
-      return;
-    } catch {}
-
     try {
       if (widgetMountedRef.current) return;
       widgetMountedRef.current = true;
