@@ -82,6 +82,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
       
       script.onload = () => {
         console.log('[TG Widget] Скрипт виджета загружен');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         console.log('[TG Widget] Callback зарегистрирован:', typeof (window as any).__tgAuthCb);
       };
       script.onerror = (err) => {
