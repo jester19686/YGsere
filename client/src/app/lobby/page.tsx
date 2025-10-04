@@ -474,10 +474,6 @@ useEffect(() => {
       const data: { code: string; maxPlayers: number } = await res.json();
       setRoom(data.code);
       setCurrentRoom(data.code);
-      setLog((l) => [
-        `🆕 создано лобби: ${data.code} (max ${data.maxPlayers})`,
-        ...l,
-      ].slice(0, 200)); // log cap
       socketRef.current?.emit('joinRoom', {
         roomId: data.code,
         nick,

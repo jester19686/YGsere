@@ -11,10 +11,9 @@ type AuthModalProps = {
   onChangeNick: (value: string) => void;
   onConfirm: (nickOverride?: string) => void;
   onClose?: () => void;
-  onTelegramAuth?: () => void;
 };
 
-const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfirm, onClose, onTelegramAuth }) => {
+const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfirm, onClose }) => {
   const RAW_API_BASE =
     process.env.NEXT_PUBLIC_API_URL ||
     (typeof window !== 'undefined'
