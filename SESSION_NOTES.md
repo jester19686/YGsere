@@ -17,7 +17,7 @@
 │   PORT=4000
 │   NODE_ENV=production
 │   FRONT_ORIGIN=https://bunker-zone.ru
-│   TELEGRAM_BOT_TOKEN=8215767715:AAE40zbwA0JJUShvczvRrg09wGbU4znOuNs
+│   TELEGRAM_BOT_TOKEN=
 │
 └── client/.env.production (frontend config)
     NEXT_PUBLIC_API_URL=https://bunker-zone.ru
