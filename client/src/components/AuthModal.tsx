@@ -58,8 +58,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
             console.log('[TG Auth] Успех! Имя:', name, 'Avatar:', avatarUrl);
             if (name) onChangeNick(name);
             try { if (avatarUrl) localStorage.setItem('bunker:avatar', avatarUrl); } catch {}
-            console.log('[TG Auth] Вызываем onConfirm()');
-            onConfirm();
+            console.log('[TG Auth] Ждём обновления состояния и вызываем onConfirm()');
+            // Даём React время обновить состояние nick перед вызовом onConfirm
+            setTimeout(() => {
+              onConfirm();
+            }, 50);
           } else {
             console.error('[TG Auth] Неудача:', data);
             setWidgetError('Не удалось подтвердить данные Telegram');
