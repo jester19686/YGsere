@@ -34,23 +34,33 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, nick, onChangeNick, onConfi
       widgetMountedRef.current = true;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__tgAuthCb = async (user: any) => {
+        console.log('[TG Auth] Callback вызван с user:', user);
+        console.log('[TG Auth] API_BASE:', API_BASE);
         try {
-          const res = await fetch(`${API_BASE}/api/auth/telegram/verify`, {
+          const url = `${API_BASE}/api/auth/telegram/verify`;
+          console.log('[TG Auth] Отправка запроса на:', url);
+          const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(user),
           });
+          console.log('[TG Auth] Ответ статус:', res.status);
           const data = await res.json();
+          console.log('[TG Auth] Ответ данные:', data);
           if (data?.ok && data?.profile) {
             const name: string = data.profile.name || '';
             const avatarUrl: string | null = data.profile.avatarUrl || null;
+            console.log('[TG Auth] Успех! Имя:', name, 'Avatar:', avatarUrl);
             if (name) onChangeNick(name);
             try { if (avatarUrl) localStorage.setItem('bunker:avatar', avatarUrl); } catch {}
+            console.log('[TG Auth] Вызываем onConfirm()');
             onConfirm();
           } else {
+            console.error('[TG Auth] Неудача:', data);
             setWidgetError('Не удалось подтвердить данные Telegram');
           }
         } catch (e) {
+          console.error('[TG Auth] Ошибка:', e);
           setWidgetError('Ошибка связи с сервером');
         }
       };
