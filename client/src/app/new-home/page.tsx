@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { Play, Users, Shield, Zap, Trophy, Clock, Flame, Target, ChevronDown, ChevronRight, User, Maximize, MessageCircle, Vote, Crown, Menu, X, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CardsCarousel from '@/components/CardsCarousel';
@@ -629,7 +630,8 @@ export default function NewHomePage() {
                 desc: 'Создатель игры настраивает параметры и ждёт, пока соберётся нужное количество участников. Здесь можно пообщаться перед началом игры.',
                 color: 'from-blue-500/20 to-cyan-500/20',
                 iconColor: 'text-blue-400',
-                borderColor: 'border-blue-500/50'
+                borderColor: 'border-blue-500/50',
+                image: '/images/game-steps/lobby.jpg'
               },
               {
                 id: 1,
@@ -639,7 +641,8 @@ export default function NewHomePage() {
                 desc: 'Игра начинается! Каждый игрок получает набор случайных карт, формирующих уникального персонажа: профессию, здоровье, хобби, багаж и другие характеристики.',
                 color: 'from-purple-500/20 to-pink-500/20',
                 iconColor: 'text-purple-400',
-                borderColor: 'border-purple-500/50'
+                borderColor: 'border-purple-500/50',
+                image: '/images/game-steps/game-table.jpg'
               },
               {
                 id: 2,
@@ -649,7 +652,8 @@ export default function NewHomePage() {
                 desc: 'Самый важный этап! Игроки представляют своих персонажей, обсуждают их полезность для выживания в бункере, заключают союзы и пытаются убедить остальных.',
                 color: 'from-green-500/20 to-emerald-500/20',
                 iconColor: 'text-green-400',
-                borderColor: 'border-green-500/50'
+                borderColor: 'border-green-500/50',
+                image: '/images/game-steps/discussion.jpg'
               },
               {
                 id: 3,
@@ -659,7 +663,8 @@ export default function NewHomePage() {
                 desc: 'Время принять решение! Каждый игрок тайно голосует за того, кто, по его мнению, должен покинуть бункер. Игрок с наибольшим количеством голосов выбывает.',
                 color: 'from-orange-500/20 to-red-500/20',
                 iconColor: 'text-orange-400',
-                borderColor: 'border-orange-500/50'
+                borderColor: 'border-orange-500/50',
+                image: '/images/game-steps/voting.jpg'
               },
               {
                 id: 4,
@@ -669,7 +674,8 @@ export default function NewHomePage() {
                 desc: 'Раунды повторяются, пока в бункере не останется ровно столько игроков, сколько в нём мест. Оставшиеся игроки — победители! Они смогли убедить остальных в своей ценности.',
                 color: 'from-yellow-500/20 to-amber-500/20',
                 iconColor: 'text-yellow-400',
-                borderColor: 'border-yellow-500/50'
+                borderColor: 'border-yellow-500/50',
+                image: '/images/game-steps/final.jpg'
               },
             ].map((step, idx) => (
               <motion.div
@@ -726,10 +732,16 @@ export default function NewHomePage() {
                                 <span>Длительность зависит от настроек игры</span>
                               </div>
                             </div>
-                            <div className="flex-shrink-0 w-64 h-40 bg-slate-950/50 rounded-xl border border-white/5 flex items-center justify-center">
-                              <div className="text-center text-gray-600">
-                                <step.icon className={`w-12 h-12 ${step.iconColor} mx-auto mb-2 opacity-30`} />
-                                <p className="text-xs">Скриншот этапа</p>
+                            <div className="flex-shrink-0 w-80 h-48 bg-slate-950/50 rounded-xl border border-white/5 overflow-hidden relative group">
+                              <Image
+                                src={step.image}
+                                alt={`Скриншот этапа: ${step.title}`}
+                                width={320}
+                                height={192}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                                <span className="text-xs text-white/80">Клик для увеличения</span>
                               </div>
                             </div>
                           </div>
