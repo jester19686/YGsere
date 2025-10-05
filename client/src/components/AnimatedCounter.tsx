@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { useEffect, useState } from 'react';
 
 interface AnimatedCounterProps {
   value: number;
@@ -12,28 +11,36 @@ export default function AnimatedCounter({
   value, 
   className = ''
 }: AnimatedCounterProps) {
-  const nodeRef = useRef<HTMLSpanElement>(null);
-  const motionValue = useMotionValue(0);
-  
-  const display = useTransform(motionValue, (current) => {
-    return Math.floor(current).toLocaleString();
-  });
+  const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
-    const controls = animate(motionValue, value, {
-      duration: 1.5,
-      ease: 'easeOut',
-    });
+    // Простая анимация без framer-motion хуков
+    const duration = 1500; // 1.5 секунды
+    const steps = 60;
+    const increment = (value - displayValue) / steps;
+    const stepDuration = duration / steps;
 
-    return controls.stop;
-  }, [motionValue, value]);
+    let current = displayValue;
+    let step = 0;
+
+    const timer = setInterval(() => {
+      step++;
+      current += increment;
+      
+      if (step >= steps) {
+        setDisplayValue(value);
+        clearInterval(timer);
+      } else {
+        setDisplayValue(Math.floor(current));
+      }
+    }, stepDuration);
+
+    return () => clearInterval(timer);
+  }, [value, displayValue]);
 
   return (
-    <motion.span 
-      ref={nodeRef}
-      className={className}
-    >
-      {display}
-    </motion.span>
+    <span className={className}>
+      {displayValue.toLocaleString()}
+    </span>
   );
 }
