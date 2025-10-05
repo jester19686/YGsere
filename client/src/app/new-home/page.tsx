@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Play, Users, Shield, Zap, Trophy, Clock, Flame, Target, ChevronDown, ChevronRight, User, Maximize, MessageCircle, Vote, Menu, X } from 'lucide-react';
+import { Play, Users, Shield, Zap, Trophy, Clock, Flame, Target, ChevronDown, ChevronRight, User, Maximize, MessageCircle, Vote, Crown, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CardsCarousel from '@/components/CardsCarousel';
 import AnimatedCounter from '@/components/AnimatedCounter';
