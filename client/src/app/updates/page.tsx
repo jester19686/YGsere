@@ -3,15 +3,15 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Zap, Plus, Bug, Shield, Menu, X, ArrowLeft, Sparkles } from 'lucide-react';
+import { Calendar, Zap, Plus, Shield, Menu, X, ArrowLeft, Sparkles } from 'lucide-react';
 
 export default function UpdatesPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const updates = [
     {
-      version: "v0.9.0",
-      date: "29 сентября 2025",
+      version: "v0.5.0",
+      date: "3 октября 2025",
       type: "major",
       icon: Zap,
       title: "Крупное обновление: Полноценный выпуск",
@@ -25,8 +25,8 @@ export default function UpdatesPage() {
       ]
     },
     {
-      version: "v2.0.5",
-      date: "5 сентября 2025",
+      version: "v0.1.0",
+      date: "25 сентября 2025",
       type: "minor",
       icon: Plus,
       title: "Первая версия игры",
