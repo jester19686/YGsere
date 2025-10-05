@@ -2,10 +2,13 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Play, Users, Shield, Zap, Trophy, Clock, Flame, Target, ChevronDown, ChevronRight, User, Maximize, MessageCircle, Vote, Crown, Menu, X } from 'lucide-react';
+import { Play, Users, Shield, Zap, Trophy, Clock, Flame, Target, ChevronDown, ChevronRight, User, Maximize, MessageCircle, Vote, Crown, Menu, X, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CardsCarousel from '@/components/CardsCarousel';
 import AnimatedCounter from '@/components/AnimatedCounter';
+import MiniChart from '@/components/MiniChart';
+import ActiveGamesTable from '@/components/ActiveGamesTable';
+import { getMockMetrics, getMock24HourData } from '@/utils/mockData';
 
 type Stats = { activePlayers: number; activeGames: number; completedGames: number };
 
@@ -17,6 +20,11 @@ export default function NewHomePage() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [chartData, setChartData] = useState({
+    online: [] as number[],
+    active: [] as number[],
+    completed: [] as number[]
+  });
 
   useEffect(() => {
     const handleScroll = () => {
@@ -33,6 +41,9 @@ export default function NewHomePage() {
   }, []);
 
   useEffect(() => {
+    // Initialize chart data
+    setChartData(getMock24HourData());
+    
     let canceled = false;
     const load = async () => {
       try {
@@ -57,7 +68,7 @@ export default function NewHomePage() {
       }
     };
     load();
-    const t = setInterval(load, 10000);
+    const t = setInterval(load, 3000); // Update every 3 seconds
     return () => {
       canceled = true;
       clearInterval(t);
@@ -309,7 +320,7 @@ export default function NewHomePage() {
           </div>
         </section>
 
-        {/* Live Stats Bar - Minimalist */}
+        {/* Live Stats Bar - New Design with Charts */}
         <section className="max-w-[1600px] mx-auto px-6 py-8">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -320,33 +331,49 @@ export default function NewHomePage() {
             {/* Игроков онлайн */}
             <motion.div 
               className="relative group"
-              whileHover={{ y: -2 }}
-              transition={{ duration: 0.2 }}
+              whileHover={{ scale: 1.01 }}
+              transition={{ duration: 0.3 }}
             >
-              <div className="absolute inset-0 bg-green-500/5 rounded-xl blur-xl group-hover:bg-green-500/10 transition-all duration-300" />
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-800/20 to-slate-700/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
               
-              <div className="relative bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-xl p-5 hover:border-green-500/30 transition-all duration-300">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
-                      <Users className="w-5 h-5 text-green-400" />
+              <div className="relative overflow-hidden bg-slate-900/50 border border-slate-800/50 backdrop-blur-sm rounded-2xl p-4 hover:bg-slate-900/70 hover:shadow-lg hover:shadow-slate-900/50 transition-all duration-300">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-emerald-500/10">
+                      <Users className="w-4 h-4 text-emerald-500" />
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                      <span className="text-[10px] text-green-400 font-medium uppercase tracking-wide">Online</span>
-                    </div>
+                    <span className="text-xs font-semibold tracking-wider text-emerald-500 uppercase">
+                      ОНЛАЙН
+                    </span>
                   </div>
                 </div>
-                
-                <div className="space-y-1">
-                  <div className="text-3xl font-bold text-white">
+
+                {/* Value */}
+                <div className="mb-3">
+                  <div className="text-3xl font-bold text-white mb-1 tabular-nums">
                     {loading ? (
                       <span className="animate-pulse">...</span>
                     ) : (
-                      <AnimatedCounter value={stats.activePlayers} />
+                      stats.activePlayers.toLocaleString()
                     )}
                   </div>
-                  <div className="text-sm text-gray-400">Игроков сейчас</div>
+                  <div className="text-xs text-slate-400">
+                    Игроков сейчас
+                  </div>
+                </div>
+
+                {/* Chart */}
+                <div className="mt-3 pt-3 border-t border-slate-800/50">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-slate-500 uppercase tracking-wider">
+                      Последние 24 часа
+                    </span>
+                  </div>
+                  <MiniChart 
+                    data={chartData.online} 
+                    color="#10b981"
+                  />
                 </div>
               </div>
             </motion.div>
@@ -354,33 +381,49 @@ export default function NewHomePage() {
             {/* Активных игр */}
             <motion.div 
               className="relative group"
-              whileHover={{ y: -2 }}
-              transition={{ duration: 0.2 }}
+              whileHover={{ scale: 1.01 }}
+              transition={{ duration: 0.3 }}
             >
-              <div className="absolute inset-0 bg-orange-500/5 rounded-xl blur-xl group-hover:bg-orange-500/10 transition-all duration-300" />
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-800/20 to-slate-700/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
               
-              <div className="relative bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-xl p-5 hover:border-orange-500/30 transition-all duration-300">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
-                      <Target className="w-5 h-5 text-orange-400" />
+              <div className="relative overflow-hidden bg-slate-900/50 border border-slate-800/50 backdrop-blur-sm rounded-2xl p-4 hover:bg-slate-900/70 hover:shadow-lg hover:shadow-slate-900/50 transition-all duration-300">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-orange-500/10">
+                      <Target className="w-4 h-4 text-orange-500" />
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Flame className="w-3 h-3 text-orange-400 animate-pulse" />
-                      <span className="text-[10px] text-orange-400 font-medium uppercase tracking-wide">Active</span>
-                    </div>
+                    <span className="text-xs font-semibold tracking-wider text-orange-500 uppercase">
+                      АКТИВНЫЕ
+                    </span>
                   </div>
                 </div>
-                
-                <div className="space-y-1">
-                  <div className="text-3xl font-bold text-white">
+
+                {/* Value */}
+                <div className="mb-3">
+                  <div className="text-3xl font-bold text-white mb-1 tabular-nums">
                     {loading ? (
                       <span className="animate-pulse">...</span>
                     ) : (
-                      <AnimatedCounter value={stats.activeGames} />
+                      stats.activeGames.toLocaleString()
                     )}
                   </div>
-                  <div className="text-sm text-gray-400">Игр идёт</div>
+                  <div className="text-xs text-slate-400">
+                    Игр идёт
+                  </div>
+                </div>
+
+                {/* Chart */}
+                <div className="mt-3 pt-3 border-t border-slate-800/50">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-slate-500 uppercase tracking-wider">
+                      Последние 24 часа
+                    </span>
+                  </div>
+                  <MiniChart 
+                    data={chartData.active} 
+                    color="#f97316"
+                  />
                 </div>
               </div>
             </motion.div>
@@ -388,40 +431,56 @@ export default function NewHomePage() {
             {/* Завершено игр */}
             <motion.div 
               className="relative group"
-              whileHover={{ y: -2 }}
-              transition={{ duration: 0.2 }}
+              whileHover={{ scale: 1.01 }}
+              transition={{ duration: 0.3 }}
             >
-              <div className="absolute inset-0 bg-slate-500/5 rounded-xl blur-xl group-hover:bg-slate-500/10 transition-all duration-300" />
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-800/20 to-slate-700/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
               
-              <div className="relative bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-xl p-5 hover:border-slate-600/50 transition-all duration-300">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-slate-700/30 rounded-lg flex items-center justify-center">
-                      <Trophy className="w-5 h-5 text-slate-400" />
+              <div className="relative overflow-hidden bg-slate-900/50 border border-slate-800/50 backdrop-blur-sm rounded-2xl p-4 hover:bg-slate-900/70 hover:shadow-lg hover:shadow-slate-900/50 transition-all duration-300">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-blue-500/10">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500" />
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Shield className="w-3 h-3 text-slate-400" />
-                      <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Total</span>
-                    </div>
+                    <span className="text-xs font-semibold tracking-wider text-blue-500 uppercase">
+                      ВСЕГО
+                    </span>
                   </div>
                 </div>
-                
-                <div className="space-y-1">
-                  <div className="text-3xl font-bold text-white">
+
+                {/* Value */}
+                <div className="mb-3">
+                  <div className="text-3xl font-bold text-white mb-1 tabular-nums">
                     {loading ? (
                       <span className="animate-pulse">...</span>
                     ) : (
-                      <AnimatedCounter value={stats.completedGames} />
+                      stats.completedGames.toLocaleString()
                     )}
                   </div>
-                  <div className="text-sm text-gray-400">Завершено</div>
+                  <div className="text-xs text-slate-400">
+                    Завершено
+                  </div>
+                </div>
+
+                {/* Chart */}
+                <div className="mt-3 pt-3 border-t border-slate-800/50">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-slate-500 uppercase tracking-wider">
+                      Последние 24 часа
+                    </span>
+                  </div>
+                  <MiniChart 
+                    data={chartData.completed} 
+                    color="#3b82f6"
+                  />
                 </div>
               </div>
             </motion.div>
           </motion.div>
         </section>
 
-        {/* Active Games Table */}
+        {/* Active Games Table - Real Data */}
         <section id="games" className="container mx-auto px-6 py-20 scroll-mt-20">
           <motion.div
             initial={{ opacity: 0 }}
@@ -443,86 +502,21 @@ export default function NewHomePage() {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
-            className="relative group"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-800/20 to-slate-700/20 rounded-2xl blur-xl" />
-            <div className="relative bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
-              {/* Table Header */}
-              <div className="grid grid-cols-5 gap-4 p-6 border-b border-white/10 bg-slate-950/50">
-                <div className="text-sm font-bold text-gray-400 uppercase tracking-wider">Создатель</div>
-                <div className="text-sm font-bold text-gray-400 uppercase tracking-wider">Статус</div>
-                <div className="text-sm font-bold text-gray-400 uppercase tracking-wider">Игроков</div>
-                <div className="text-sm font-bold text-gray-400 uppercase tracking-wider">Стадия игры</div>
-                <div className="text-sm font-bold text-gray-400 uppercase tracking-wider text-center">Действие</div>
-              </div>
+            <ActiveGamesTable 
+              maxDisplay={5}
+              showPagination={true}
+              showFilters={true}
+            />
 
-              {/* Table Body */}
-              <div className="divide-y divide-white/5">
-                {loading ? (
-                  <div className="p-12 text-center text-gray-500">
-                    <div className="inline-block w-8 h-8 border-4 border-gray-700 border-t-orange-500 rounded-full animate-spin mb-4" />
-                    <p>Загрузка активных игр...</p>
-                  </div>
-                ) : stats.activeGames === 0 ? (
-                  <div className="p-12 text-center">
-                    <Shield className="w-16 h-16 text-gray-700 mx-auto mb-4" />
-                    <p className="text-gray-500 text-lg mb-4">Нет активных игр</p>
-                    <p className="text-gray-600 text-sm">Будь первым, кто создаст игру!</p>
-                  </div>
-                ) : (
-                  <>
-                    {[...Array(Math.min(5, stats.activeGames))].map((_, idx) => (
-                      <motion.div
-                        key={idx}
-                        initial={{ opacity: 0, x: -20 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.4, delay: idx * 0.1 }}
-                        viewport={{ once: true }}
-                        className="grid grid-cols-5 gap-4 p-6 hover:bg-white/5 transition-colors duration-200"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-800 rounded-lg flex items-center justify-center">
-                            <User className="w-5 h-5 text-gray-400" />
-                          </div>
-                          <span className="font-medium text-gray-300">Игрок_{idx + 1}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <span className="inline-flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/30 rounded-full text-green-400 text-sm font-medium">
-                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                            Открыта
-                          </span>
-                        </div>
-                        <div className="flex items-center">
-                          <span className="text-gray-300 font-medium">{Math.floor(Math.random() * 8) + 4}/16</span>
-                        </div>
-                        <div className="flex items-center">
-                          <span className="text-gray-400">Ожидание игроков</span>
-                        </div>
-                        <div className="flex items-center justify-center">
-                          <Link
-                            href="/lobby"
-                            className="px-6 py-2 bg-gradient-to-r from-orange-500/80 to-red-600/80 hover:from-orange-500 hover:to-red-600 rounded-lg font-medium text-sm transition-all duration-200 transform hover:scale-105"
-                          >
-                            Подключиться
-                          </Link>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </>
-                )}
-              </div>
-
-              {/* View All Button */}
-              {!loading && stats.activeGames > 0 && (
-                <div className="p-6 bg-slate-950/50 border-t border-white/10">
-                  <Link
-                    href="/lobby"
-                    className="w-full block text-center py-3 text-gray-400 hover:text-white transition-colors duration-200 font-medium"
-                  >
-                    Посмотреть все игры →
-                  </Link>
-                </div>
-              )}
+            {/* View All Button */}
+            <div className="mt-6 text-center">
+              <Link
+                href="/lobby"
+                className="inline-block px-8 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl font-medium transition-all duration-200"
+              >
+                Посмотреть все игры в лобби →
+              </Link>
             </div>
           </motion.div>
         </section>
