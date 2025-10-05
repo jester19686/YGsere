@@ -1685,7 +1685,7 @@ socket.on('game:turn:force', ({ roomId, playerId }) => {
         const r = rooms.get(room.code);
         if (!r || r.players.size > 0) return; // кто-то уже вернулся — не удаляем
         // Только здесь действительно удаляем и обновляем список
-        try { clearTurnTimer(room.code); } catch {}
+        try { timers.clearTurnTimer(room.code); } catch {}
         rooms.delete(room.code);
         broadcastRooms(io);
       }, 15000);
