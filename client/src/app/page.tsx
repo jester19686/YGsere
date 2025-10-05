@@ -9,6 +9,7 @@ import CardsCarousel from '@/components/CardsCarousel';
 import AnimatedCounter from '@/components/AnimatedCounter';
 import MiniChart from '@/components/MiniChart';
 import ActiveGamesTable from '@/components/ActiveGamesTable';
+import StructuredData from '@/components/StructuredData';
 import { getMockMetrics, getMock24HourData } from '@/utils/mockData';
 
 type Stats = { activePlayers: number; activeGames: number; completedGames: number };
@@ -78,6 +79,7 @@ export default function NewHomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
+      <StructuredData />
       <style jsx global>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
