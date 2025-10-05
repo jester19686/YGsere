@@ -3,14 +3,13 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Play, Users, Shield, Zap, Trophy, Clock, Flame, Target, ChevronDown, ChevronRight, User, Maximize, MessageCircle, Vote, Crown, Menu, X, CheckCircle2 } from 'lucide-react';
+import { Play, Users, Shield, Zap, Trophy, Clock, Flame, Target, ChevronDown, Maximize, MessageCircle, Vote, Crown, Menu, X, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CardsCarousel from '@/components/CardsCarousel';
-import AnimatedCounter from '@/components/AnimatedCounter';
 import MiniChart from '@/components/MiniChart';
 import ActiveGamesTable from '@/components/ActiveGamesTable';
 import StructuredData from '@/components/StructuredData';
-import { getMockMetrics, getMock24HourData } from '@/utils/mockData';
+import { getMock24HourData } from '@/utils/mockData';
 
 type Stats = { activePlayers: number; activeGames: number; completedGames: number };
 

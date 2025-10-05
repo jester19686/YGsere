@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Briefcase, Heart, Brain, AlertCircle, Package, Shield } from 'lucide-react';
+import { LucideIcon } from 'lucide-react';
 
 interface CardType {
-  icon: any;
+  icon: LucideIcon;
   title: string;
   count: number;
   color: string;
@@ -137,9 +138,6 @@ export default function CardsCarousel() {
     emblaApi.on('select', onSelect);
     return () => { emblaApi.off('select', onSelect); };
   }, [emblaApi, onSelect, slideCount]);
-
-  const scrollPrev = useCallback(() => emblaApi && emblaApi.scrollPrev(), [emblaApi]);
-  const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
 
   return (
     <div className="relative w-full">

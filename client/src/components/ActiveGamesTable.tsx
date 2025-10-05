@@ -186,7 +186,7 @@ const ActiveGamesTable: React.FC<ActiveGamesTableProps> = ({
               {['all', 'bunker', 'whoami'].map((type) => (
                 <button
                   key={type}
-                  onClick={() => setFilterGame(type as any)}
+                  onClick={() => setFilterGame(type as 'all' | 'bunker' | 'whoami')}
                   className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 ${
                     filterGame === type
                       ? 'bg-orange-500 text-white'
@@ -211,7 +211,7 @@ const ActiveGamesTable: React.FC<ActiveGamesTableProps> = ({
               ].map(({ value, label }) => (
                 <button
                   key={value}
-                  onClick={() => setFilterStatus(value as any)}
+                  onClick={() => setFilterStatus(value as 'all' | 'open' | 'closed' | 'playing')}
                   className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 ${
                     filterStatus === value
                       ? 'bg-orange-500 text-white'

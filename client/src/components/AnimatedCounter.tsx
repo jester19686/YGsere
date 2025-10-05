@@ -12,9 +12,7 @@ interface AnimatedCounterProps {
 
 export default function AnimatedCounter({ 
   value, 
-  duration = 1.5, 
-  className = '',
-  decimals = 0 
+  className = ''
 }: AnimatedCounterProps) {
   const nodeRef = useRef<HTMLSpanElement>(null);
   
