@@ -2,7 +2,8 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import '@/styles/themes.css';
-import Script from "next/script"; // 👈 ДОБАВЛЕНО
+import Script from "next/script";
+import YandexMetrika from '@/components/YandexMetrika';
 
 import type { Metadata } from 'next'
 
@@ -106,6 +107,7 @@ export default function RootLayout({
         </Script>
 
         {children}
+        <YandexMetrika />
       </body>
     </html>
   );
