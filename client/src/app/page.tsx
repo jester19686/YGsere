@@ -1,17 +1,50 @@
 'use client';
 
 import Link from 'next/link';
-import Navigation from '@/components/Navigation';
 import { useEffect, useState } from 'react';
-import { Play, Users, Shield, Zap } from 'lucide-react';
+import Image from 'next/image';
+import { Play, Users, Shield, Zap, Trophy, Clock, Flame, Target, ChevronDown, ChevronRight, User, Maximize, MessageCircle, Vote, Crown, Menu, X, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import CardsCarousel from '@/components/CardsCarousel';
+import AnimatedCounter from '@/components/AnimatedCounter';
+import MiniChart from '@/components/MiniChart';
+import ActiveGamesTable from '@/components/ActiveGamesTable';
+import { getMockMetrics, getMock24HourData } from '@/utils/mockData';
 
 type Stats = { activePlayers: number; activeGames: number; completedGames: number };
 
-export default function Home() {
+export default function NewHomePage() {
   const [stats, setStats] = useState<Stats>({ activePlayers: 0, activeGames: 0, completedGames: 0 });
   const [loading, setLoading] = useState<boolean>(true);
+  const [gameBasicsOpen, setGameBasicsOpen] = useState<number | null>(0);
+  const [faqOpen, setFaqOpen] = useState<number | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [chartData, setChartData] = useState({
+    online: [] as number[],
+    active: [] as number[],
+    completed: [] as number[]
+  });
 
   useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = (scrollTop / docHeight) * 100;
+      
+      setScrollProgress(progress);
+      setShowScrollTop(scrollTop > 500);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    // Initialize chart data
+    setChartData(getMock24HourData());
+    
     let canceled = false;
     const load = async () => {
       try {
@@ -36,7 +69,7 @@ export default function Home() {
       }
     };
     load();
-    const t = setInterval(load, 10000);
+    const t = setInterval(load, 3000); // Update every 3 seconds
     return () => {
       canceled = true;
       clearInterval(t);
@@ -44,190 +77,974 @@ export default function Home() {
   }, []);
 
   return (
-    <div 
-      className="min-h-screen relative overflow-hidden"
-      style={{
-        backgroundImage: 'url(/bunker-corridor.png)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'fixed'
-      }}
-    >
-      {/* Overlay для лучшей читаемости */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/70 to-black/80 backdrop-blur-[1px]"></div>
-      
-      {/* Декоративные элементы для атмосферы */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-yellow-500/30 rounded-full animate-pulse"></div>
-        <div className="absolute top-3/4 right-1/4 w-1 h-1 bg-orange-500/40 rounded-full animate-ping"></div>
-        <div className="absolute top-1/2 right-1/3 w-1.5 h-1.5 bg-red-500/20 rounded-full animate-pulse delay-1000"></div>
-        <div className="absolute bottom-1/4 left-1/3 w-1 h-1 bg-yellow-400/50 rounded-full animate-ping delay-500"></div>
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
+      <style jsx global>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+      {/* Scroll Progress Bar */}
+      <div className="fixed top-0 left-0 w-full h-1 bg-slate-800/50 z-[100]">
+        <div 
+          className="h-full bg-gradient-to-r from-orange-500 to-red-600 transition-all duration-150"
+          style={{ width: `${scrollProgress}%` }}
+        ></div>
       </div>
-      
-      <div className="relative z-10">
-        <Navigation />
-      
-      <main className="min-h-screen">
-        {/* Hero Section - Поверх фонового изображения */}
-        <div className="min-h-screen flex items-center justify-center px-4 py-20 relative z-10">
-          <div className="text-center max-w-4xl mx-auto">
-            <h1 className="text-6xl md:text-8xl font-extrabold mb-8">
-              <span className="text-white">БУНКЕР</span><br />
-              <span className="text-orange-500">ОНЛАЙН</span>
+
+      {/* Scroll to Top Button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="fixed bottom-8 right-8 z-50 w-14 h-14 bg-gradient-to-r from-orange-500 to-red-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 group"
+          >
+            <ChevronDown className="w-6 h-6 rotate-180 group-hover:translate-y-[-2px] transition-transform" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-20 left-10 w-96 h-96 bg-orange-500/10 rounded-full blur-[100px] animate-pulse" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-red-500/10 rounded-full blur-[100px] animate-pulse delay-1000" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-amber-500/10 rounded-full blur-[120px] animate-pulse delay-500" />
+        <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-orange-400/8 rounded-full blur-[100px] animate-pulse delay-700" />
+        <div className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-red-400/8 rounded-full blur-[100px] animate-pulse delay-300" />
+      </div>
+
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 backdrop-blur-xl bg-black/40">
+        <div className="max-w-[1600px] mx-auto px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Shield className="w-7 h-7" />
+              </div>
+              <span className="text-2xl md:text-3xl font-black bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
+                БУНКЕР ОНЛАЙН
+              </span>
+            </div>
+
+            {/* Desktop Menu */}
+            <div className="hidden lg:flex items-center space-x-8">
+              <a href="#hero" className="text-gray-300 hover:text-white transition-all duration-200 text-base font-medium relative group">
+                Главная
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-orange-500 to-red-600 group-hover:w-full transition-all duration-300"></span>
+              </a>
+              <a href="#games" className="text-gray-300 hover:text-white transition-all duration-200 text-base font-medium relative group">
+                Активные игры
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-orange-500 to-red-600 group-hover:w-full transition-all duration-300"></span>
+              </a>
+              <a href="#basics" className="text-gray-300 hover:text-white transition-all duration-200 text-base font-medium relative group">
+                Основы
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-orange-500 to-red-600 group-hover:w-full transition-all duration-300"></span>
+              </a>
+              <a href="#cards" className="text-gray-300 hover:text-white transition-all duration-200 text-base font-medium relative group">
+                Карты
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-orange-500 to-red-600 group-hover:w-full transition-all duration-300"></span>
+              </a>
+              <a href="#faq" className="text-gray-300 hover:text-white transition-all duration-200 text-base font-medium relative group">
+                FAQ
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-orange-500 to-red-600 group-hover:w-full transition-all duration-300"></span>
+              </a>
+              <Link href="/updates" className="text-gray-300 hover:text-white transition-all duration-200 text-base font-medium relative group">
+                Обновления
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-orange-500 to-red-600 group-hover:w-full transition-all duration-300"></span>
+              </Link>
+              <Link href="/lobby" className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl text-base font-bold hover:scale-105 hover:shadow-xl shadow-orange-500/50 transition-all duration-200">
+                Играть сейчас
+              </Link>
+            </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Menu */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="lg:hidden border-t border-white/10 bg-black/50 backdrop-blur-xl overflow-hidden"
+            >
+              <div className="max-w-[1600px] mx-auto px-6 py-4 flex flex-col space-y-4">
+                <a 
+                  href="#hero" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-gray-300 hover:text-white transition-colors py-2 text-base font-medium"
+                >
+                  Главная
+                </a>
+                <a 
+                  href="#games" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-gray-300 hover:text-white transition-colors py-2 text-base font-medium"
+                >
+                  Активные игры
+                </a>
+                <a 
+                  href="#basics" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-gray-300 hover:text-white transition-colors py-2 text-base font-medium"
+                >
+                  Основы
+                </a>
+                <a 
+                  href="#cards" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-gray-300 hover:text-white transition-colors py-2 text-base font-medium"
+                >
+                  Карты
+                </a>
+                <a 
+                  href="#faq" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-gray-300 hover:text-white transition-colors py-2 text-base font-medium"
+                >
+                  FAQ
+                </a>
+                <Link 
+                  href="/updates" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-gray-300 hover:text-white transition-colors py-2 text-base font-medium"
+                >
+                  Обновления
+                </Link>
+                <Link 
+                  href="/lobby" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl text-base font-bold text-center hover:scale-105 transition-transform"
+                >
+                  Играть сейчас
+                </Link>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </nav>
+
+      <div className="relative z-10 pt-20">
+        {/* Hero Section with Bunker Background */}
+        <section 
+          id="hero"
+          className="relative min-h-screen flex items-center"
+          style={{
+            backgroundImage: 'url(/bunker-corridor.png)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
+          }}
+        >
+          {/* Overlay для затемнения и читаемости */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/70 via-40% to-transparent"></div>
+          
+          {/* Размытие нижней части изображения */}
+          <div className="absolute bottom-0 left-0 right-0 h-96 backdrop-blur-[2px]"></div>
+          <div className="absolute bottom-0 left-0 right-0 h-64 backdrop-blur-[8px]"></div>
+          <div className="absolute bottom-0 left-0 right-0 h-32 backdrop-blur-[20px]"></div>
+          
+          {/* Многослойный плавный переход к темному фону */}
+          <div className="absolute bottom-0 left-0 right-0 h-[500px] bg-gradient-to-b from-transparent via-slate-950/60 via-50% to-slate-950"></div>
+          <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-b from-transparent to-slate-950"></div>
+          
+          <div className="max-w-[1600px] mx-auto px-6 py-20 md:py-32 relative z-10">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="text-center max-w-5xl mx-auto"
+            >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.5 }}
+              className="inline-block mb-6 px-6 py-2 bg-orange-500/10 border border-orange-500/30 rounded-full"
+            >
+              <span className="text-orange-400 font-semibold text-sm uppercase tracking-wider">
+                18+ • Браузерная онлайн-игра
+              </span>
+            </motion.div>
+
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 leading-tight">
+              <span className="bg-gradient-to-r from-white via-orange-100 to-white bg-clip-text text-transparent">
+                БУНКЕР
+              </span>
+              <br />
+              <span className="bg-gradient-to-r from-orange-400 via-red-500 to-orange-400 bg-clip-text text-transparent">
+                ОНЛАЙН
+              </span>
             </h1>
-            <p className="text-xl md:text-2xl text-white mb-12 max-w-3xl mx-auto leading-relaxed">
-              Социальная игра на выживание. Убедите других, что именно вы достойны места в бункере после апокалипсиса.
+
+            <p className="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+              Дискуссионная онлайн-игра о выживании в постапокалипсисе. С 366 уникальными картами, 17 катаклизмами и бесконечным разнообразием сценариев — каждая игра уникальна!
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
               <Link
                 href="/lobby"
-                className="group relative px-10 py-5 bg-orange-500 text-white font-bold text-xl rounded-lg hover:bg-orange-400 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center gap-3"
+                className="group relative px-12 py-5 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl font-bold text-xl shadow-2xl shadow-orange-500/50 hover:shadow-orange-500/70 transition-all duration-300 transform hover:scale-105 overflow-hidden"
               >
-                <Play className="w-6 h-6" />
-                Играть сейчас
+                <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="relative flex items-center gap-3">
+                  <Play className="w-6 h-6" />
+                  Играть сейчас
+                </span>
               </Link>
               
               <Link
                 href="/lobby"
-                className="px-10 py-5 bg-gray-700/80 text-white font-bold text-xl rounded-lg hover:bg-gray-600/80 transition-all duration-300 flex items-center gap-3"
+                className="px-12 py-5 bg-white/5 backdrop-blur-sm border-2 border-white/20 hover:border-white/40 rounded-xl font-bold text-xl transition-all duration-300 transform hover:scale-105"
               >
-                <Users className="w-6 h-6" />
-                Создать лобби
+                <span className="flex items-center gap-3">
+                  <Users className="w-6 h-6" />
+                  Список комнат
+                </span>
               </Link>
             </div>
+          </motion.div>
           </div>
-        </div>
+        </section>
 
-        {/* Combined Stats and Features Section */}
-        <section className="bg-card/50 py-16">
-          <div className="container mx-auto px-4">
-            {/* Game Stats */}
-            <div className="mb-16">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gray-800 rounded-lg p-8 text-center hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-300 border border-gray-700">
-                  <div className="text-4xl font-bold text-white mb-2">
-                    {loading ? '...' : stats.activePlayers.toLocaleString()}
-                  </div>
-                  <div className="text-lg text-gray-300 mb-2">Игроков онлайн</div>
-                  <div className="text-green-400 text-sm font-bold">
-                    {stats.activePlayers > 0 ? '🟢 Онлайн' : '⚫ Офлайн'}
+        {/* Live Stats Bar - New Design with Charts */}
+        <section className="max-w-[1600px] mx-auto px-6 py-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-4"
+          >
+            {/* Игроков онлайн */}
+            <motion.div 
+              className="relative group"
+              whileHover={{ scale: 1.01 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-800/20 to-slate-700/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
+              
+              <div className="relative overflow-hidden bg-slate-900/50 border border-slate-800/50 backdrop-blur-sm rounded-2xl p-4 hover:bg-slate-900/70 hover:shadow-lg hover:shadow-slate-900/50 transition-all duration-300">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-emerald-500/10">
+                      <Users className="w-4 h-4 text-emerald-500" />
+                    </div>
+                    <span className="text-xs font-semibold tracking-wider text-emerald-500 uppercase">
+                      ОНЛАЙН
+                    </span>
                   </div>
                 </div>
 
-                <div className="bg-gray-800 rounded-lg p-8 text-center hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-300 border border-gray-700">
-                  <div className="text-4xl font-bold text-white mb-2">
-                    {loading ? '...' : stats.activeGames.toLocaleString()}
+                {/* Value */}
+                <div className="mb-3">
+                  <div className="text-3xl font-bold text-white mb-1 tabular-nums">
+                    {loading ? (
+                      <span className="animate-pulse">...</span>
+                    ) : (
+                      stats.activePlayers.toLocaleString()
+                    )}
                   </div>
-                  <div className="text-lg text-gray-300 mb-2">Активных игр</div>
-                  <div className="text-blue-400 text-sm font-bold">
-                    {stats.activeGames > 0 ? '🎮 Играют' : '⏸️ Ожидание'}
+                  <div className="text-xs text-slate-400">
+                    Игроков сейчас
                   </div>
                 </div>
 
-                <div className="bg-gray-800 rounded-lg p-8 text-center hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-300 border border-gray-700">
-                  <div className="text-4xl font-bold text-white mb-2">
-                    {loading ? '...' : stats.completedGames.toLocaleString()}
+                {/* Chart */}
+                <div className="mt-3 pt-3 border-t border-slate-800/50">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-slate-500 uppercase tracking-wider">
+                      Последние 24 часа
+                    </span>
                   </div>
-                  <div className="text-lg text-gray-300 mb-2">Завершено игр</div>
-                  <div className="text-purple-400 text-sm font-bold">🏆 Всего</div>
+                  <MiniChart 
+                    data={chartData.online} 
+                    color="#10b981"
+                  />
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            {/* Features Section */}
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold text-foreground mb-4">Особенности игры</h2>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Погрузитесь в мир постапокалиптического выживания
+            {/* Активных игр */}
+            <motion.div 
+              className="relative group"
+              whileHover={{ scale: 1.01 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-800/20 to-slate-700/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
+              
+              <div className="relative overflow-hidden bg-slate-900/50 border border-slate-800/50 backdrop-blur-sm rounded-2xl p-4 hover:bg-slate-900/70 hover:shadow-lg hover:shadow-slate-900/50 transition-all duration-300">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-orange-500/10">
+                      <Target className="w-4 h-4 text-orange-500" />
+                    </div>
+                    <span className="text-xs font-semibold tracking-wider text-orange-500 uppercase">
+                      АКТИВНЫЕ
+                    </span>
+                  </div>
+                </div>
+
+                {/* Value */}
+                <div className="mb-3">
+                  <div className="text-3xl font-bold text-white mb-1 tabular-nums">
+                    {loading ? (
+                      <span className="animate-pulse">...</span>
+                    ) : (
+                      stats.activeGames.toLocaleString()
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Игр идёт
+                  </div>
+                </div>
+
+                {/* Chart */}
+                <div className="mt-3 pt-3 border-t border-slate-800/50">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-slate-500 uppercase tracking-wider">
+                      Последние 24 часа
+                    </span>
+                  </div>
+                  <MiniChart 
+                    data={chartData.active} 
+                    color="#f97316"
+                  />
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Завершено игр */}
+            <motion.div 
+              className="relative group"
+              whileHover={{ scale: 1.01 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-800/20 to-slate-700/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
+              
+              <div className="relative overflow-hidden bg-slate-900/50 border border-slate-800/50 backdrop-blur-sm rounded-2xl p-4 hover:bg-slate-900/70 hover:shadow-lg hover:shadow-slate-900/50 transition-all duration-300">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-blue-500/10">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                    </div>
+                    <span className="text-xs font-semibold tracking-wider text-blue-500 uppercase">
+                      ВСЕГО
+                    </span>
+                  </div>
+                </div>
+
+                {/* Value */}
+                <div className="mb-3">
+                  <div className="text-3xl font-bold text-white mb-1 tabular-nums">
+                    {loading ? (
+                      <span className="animate-pulse">...</span>
+                    ) : (
+                      stats.completedGames.toLocaleString()
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Завершено
+                  </div>
+                </div>
+
+                {/* Chart */}
+                <div className="mt-3 pt-3 border-t border-slate-800/50">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-slate-500 uppercase tracking-wider">
+                      Последние 24 часа
+                    </span>
+                  </div>
+                  <MiniChart 
+                    data={chartData.completed} 
+                    color="#3b82f6"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        </section>
+
+        {/* Active Games Table - Real Data */}
+        <section id="games" className="container mx-auto px-6 py-20 scroll-mt-20">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-4xl md:text-5xl font-black mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+              Активные игры
+            </h2>
+            <p className="text-lg text-gray-400">
+              Присоединяйся к игре прямо сейчас или создай свою собственную
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
+            <ActiveGamesTable 
+              maxDisplay={5}
+              showPagination={true}
+              showFilters={true}
+            />
+
+            {/* View All Button */}
+            <div className="mt-6 text-center">
+              <Link
+                href="/lobby"
+                className="inline-block px-8 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl font-medium transition-all duration-200"
+              >
+                Посмотреть все игры в лобби →
+              </Link>
+            </div>
+          </motion.div>
+        </section>
+
+        {/* About Game Section */}
+        <section className="max-w-[1600px] mx-auto px-6 py-20">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-6xl font-black mb-6 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+              Что такое Бункер Онлайн?
+            </h2>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+              Захватывающая браузерная игра, которая объединяет друзей онлайн. 
+              Каждый раунд — новый виток драмы, стратегии и эмоций!
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Feature 1 */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              viewport={{ once: true }}
+              className="group relative"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-300" />
+              <div className="relative bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-white/10 rounded-3xl p-10 hover:border-orange-500/50 transition-all duration-300">
+                <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <Users className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-bold mb-4">от 4 до 16 игроков</h3>
+                <p className="text-gray-400 leading-relaxed">
+                  Масштабный и захватывающий игровой процесс. Большое количество участников создает множество неожиданных поворотов и интриг.
+                </p>
+              </div>
+            </motion.div>
+
+            {/* Feature 2 */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              viewport={{ once: true }}
+              className="group relative"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-300" />
+              <div className="relative bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-white/10 rounded-3xl p-10 hover:border-blue-500/50 transition-all duration-300">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <Play className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-bold mb-4">Играй без ограничений</h3>
+                <p className="text-gray-400 leading-relaxed">
+                  Ничего не нужно скачивать! Всё, что нужно — компьютер и интернет. Играй в браузере на любом устройстве.
+                </p>
+              </div>
+            </motion.div>
+
+            {/* Feature 3 */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              viewport={{ once: true }}
+              className="group relative"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-300" />
+              <div className="relative bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-white/10 rounded-3xl p-10 hover:border-purple-500/50 transition-all duration-300">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <Zap className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-bold mb-4">Живое общение</h3>
+                <p className="text-gray-400 leading-relaxed">
+                  Переговоры, убеждение и манипуляции — твоё оружие. Каждое слово может решить исход игры!
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Game Basics Section */}
+        <section id="basics" className="container mx-auto px-6 py-20 scroll-mt-20">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-6xl font-black mb-6 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+              Основы игры
+            </h2>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+              Пять простых этапов от начала до победы
+            </p>
+          </motion.div>
+
+          <div className="max-w-5xl mx-auto space-y-4">
+            {[
+              {
+                id: 0,
+                icon: Users,
+                number: '01',
+                title: 'Комната ожидания',
+                desc: 'Создатель игры настраивает параметры и ждёт, пока соберётся нужное количество участников. Здесь можно пообщаться перед началом игры.',
+                color: 'from-blue-500/20 to-cyan-500/20',
+                iconColor: 'text-blue-400',
+                borderColor: 'border-blue-500/50',
+                image: '/images/game-steps/lobby.jpg'
+              },
+              {
+                id: 1,
+                icon: Maximize,
+                number: '02',
+                title: 'Игровой стол',
+                desc: 'Игра начинается! Каждый игрок получает набор случайных карт, формирующих уникального персонажа: профессию, здоровье, хобби, багаж и другие характеристики.',
+                color: 'from-purple-500/20 to-pink-500/20',
+                iconColor: 'text-purple-400',
+                borderColor: 'border-purple-500/50',
+                image: '/images/game-steps/game-table.jpg'
+              },
+              {
+                id: 2,
+                icon: MessageCircle,
+                number: '03',
+                title: 'Обсуждение',
+                desc: 'Самый важный этап! Игроки представляют своих персонажей, обсуждают их полезность для выживания в бункере, заключают союзы и пытаются убедить остальных.',
+                color: 'from-green-500/20 to-emerald-500/20',
+                iconColor: 'text-green-400',
+                borderColor: 'border-green-500/50',
+                image: '/images/game-steps/discussion.jpg'
+              },
+              {
+                id: 3,
+                icon: Vote,
+                number: '04',
+                title: 'Голосование',
+                desc: 'Время принять решение! Каждый игрок тайно голосует за того, кто, по его мнению, должен покинуть бункер. Игрок с наибольшим количеством голосов выбывает.',
+                color: 'from-orange-500/20 to-red-500/20',
+                iconColor: 'text-orange-400',
+                borderColor: 'border-orange-500/50',
+                image: '/images/game-steps/voting.jpg'
+              },
+              {
+                id: 4,
+                icon: Crown,
+                number: '05',
+                title: 'Финал',
+                desc: 'Раунды повторяются, пока в бункере не останется ровно столько игроков, сколько в нём мест. Оставшиеся игроки — победители! Они смогли убедить остальных в своей ценности.',
+                color: 'from-yellow-500/20 to-amber-500/20',
+                iconColor: 'text-yellow-400',
+                borderColor: 'border-yellow-500/50',
+                image: '/images/game-steps/final.jpg'
+              },
+            ].map((step, idx) => (
+              <motion.div
+                key={step.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: idx * 0.1 }}
+                viewport={{ once: true }}
+                className="relative group"
+              >
+                <div className={`absolute inset-0 bg-gradient-to-r ${step.color} rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+                <div className="relative bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all duration-300">
+                  <button
+                    onClick={() => setGameBasicsOpen(gameBasicsOpen === step.id ? null : step.id)}
+                    className="w-full p-6 flex items-center gap-6 text-left"
+                  >
+                    <div className={`flex-shrink-0 w-16 h-16 bg-gradient-to-br ${step.color} rounded-xl flex items-center justify-center relative`}>
+                      <step.icon className={`w-8 h-8 ${step.iconColor} relative z-10`} />
+                      <div className="absolute top-1 right-1 text-xs font-bold text-white/30">{step.number}</div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-bold mb-1 flex items-center gap-3">
+                        {step.title}
+                        <span className="text-sm font-normal text-gray-500">Этап {step.number}</span>
+                      </h3>
+                      <p className="text-gray-400 text-sm">
+                        {gameBasicsOpen === step.id ? step.desc : step.desc.slice(0, 80) + '...'}
+                      </p>
+                    </div>
+                    <motion.div
+                      animate={{ rotate: gameBasicsOpen === step.id ? 180 : 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex-shrink-0"
+                    >
+                      <ChevronDown className="w-6 h-6 text-gray-400" />
+                    </motion.div>
+                  </button>
+
+                  <AnimatePresence>
+                    {gameBasicsOpen === step.id && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-6 pb-6 border-t border-white/10">
+                          <div className="pt-6 flex gap-6">
+                            <div className="flex-1">
+                              <p className="text-gray-300 leading-relaxed mb-4">{step.desc}</p>
+                              <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <Clock className="w-4 h-4" />
+                                <span>Длительность зависит от настроек игры</span>
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0 w-80 h-48 bg-slate-950/50 rounded-xl border border-white/5 overflow-hidden relative group">
+                              <Image
+                                src={step.image}
+                                alt={`Скриншот этапа: ${step.title}`}
+                                width={320}
+                                height={192}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                                <span className="text-xs text-white/80">Клик для увеличения</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        {/* Statistics Overview */}
+        <section className="max-w-[1600px] mx-auto px-6 py-20">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-3xl md:text-5xl font-black mb-6 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+              Бесконечное разнообразие
+            </h2>
+            <p className="text-lg text-gray-300 max-w-2xl mx-auto mb-12">
+              Каждая игра уникальна благодаря огромному количеству комбинаций
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
+            {[
+              { value: '366', label: 'Уникальных карт', icon: Target },
+              { value: '17', label: 'Катаклизмов', icon: Flame },
+              { value: '20+', label: 'Типов бункеров', icon: Shield },
+              { value: '∞', label: 'Комбинаций', icon: Zap },
+            ].map((stat, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: idx * 0.1 }}
+                viewport={{ once: true }}
+                className="relative group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
+                <div className="relative bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 text-center hover:border-orange-500/50 transition-all duration-300">
+                  <stat.icon className="w-8 h-8 text-orange-400 mx-auto mb-3" />
+                  <div className="text-4xl font-black text-white mb-2">{stat.value}</div>
+                  <div className="text-sm text-gray-400">{stat.label}</div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        {/* Why Play Section */}
+        <section className="max-w-[1600px] mx-auto px-6 py-20">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-6xl font-black mb-6 bg-gradient-to-r from-orange-400 via-red-400 to-orange-400 bg-clip-text text-transparent">
+              Почему в это интересно играть?
+            </h2>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+              Анализируй других игроков, строй стратегии, заключай союзы и принимай непростые решения
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { icon: Shield, title: 'Разнообразие персонажей', desc: 'Твой герой всегда уникален благодаря случайным картам профессии, хобби, здоровья и другим характеристикам' },
+              { icon: Users, title: 'Социальные механики', desc: 'Игра сочетает элементы психологии, блефа и дипломатии, создавая уникальный опыт!' },
+              { icon: Target, title: 'Тактические голосования', desc: 'Доверие и предательство в реальном времени' },
+              { icon: Zap, title: 'Неожиданные повороты', desc: 'Уникальные карты, способные изменить ход игры' },
+              { icon: Trophy, title: 'Справедливый баланс', desc: 'Даже слабый персонаж может стать ключевым' },
+              { icon: Clock, title: 'Динамичный геймплей', desc: 'Каждый раунд проходит под давлением таймера' },
+            ].map((item, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: idx * 0.1 }}
+                viewport={{ once: true }}
+                className="group relative"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-red-500/5 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
+                <div className="relative bg-gradient-to-br from-slate-900/60 to-slate-800/60 backdrop-blur-xl border border-white/10 rounded-2xl p-8 hover:border-orange-500/50 transition-all duration-300">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-500/20 to-red-600/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <item.icon className="w-6 h-6 text-orange-400" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-3">{item.title}</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        {/* Unique Cards Section - Full Width */}
+        <section id="cards" className="w-full py-20 scroll-mt-20 relative">
+          {/* Matching Background Elements */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute top-20 right-20 w-96 h-96 bg-orange-500/5 rounded-full blur-[100px] animate-pulse" />
+            <div className="absolute bottom-20 left-20 w-96 h-96 bg-red-500/5 rounded-full blur-[100px] animate-pulse delay-1000" />
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center mb-16 relative z-10 px-6"
+          >
+            <h2 className="text-4xl md:text-6xl font-black mb-6 bg-gradient-to-r from-orange-400 via-red-400 to-orange-400 bg-clip-text text-transparent">
+              Уникальные карты
+            </h2>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+              366 уникальных карт создают бесконечное разнообразие персонажей и сценариев
+            </p>
+          </motion.div>
+
+          {/* New Carousel Component - Full Width */}
+          <CardsCarousel />
+        </section>
+
+        {/* FAQ Section */}
+        <section id="faq" className="container mx-auto px-6 py-20 scroll-mt-20">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-6xl font-black mb-6 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+              Часто задаваемые вопросы
+            </h2>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+              Ответы на популярные вопросы о игре
+            </p>
+          </motion.div>
+
+          <div className="max-w-4xl mx-auto space-y-4">
+            {[
+              {
+                q: 'Сколько игроков может участвовать в одной игре?',
+                a: 'От 4 до 16 игроков. Оптимальное количество для комфортной игры — 6-12 человек.'
+              },
+              {
+                q: 'Нужно ли что-то скачивать или устанавливать?',
+                a: 'Нет! Игра полностью браузерная. Достаточно иметь интернет и современный браузер.'
+              },
+              {
+                q: 'Сколько длится одна игра?',
+                a: 'В среднем 30-60 минут, в зависимости от количества игроков и настроек таймеров.'
+              },
+              {
+                q: 'Можно ли играть с телефона или планшета?',
+                a: 'Да! Игра адаптирована для мобильных устройств и планшетов.'
+              },
+              {
+                q: 'Игра бесплатная?',
+                a: 'Да, игра полностью бесплатная для всех игроков. Мы развиваем проект за счёт добровольных пожертвований.'
+              },
+              {
+                q: 'Как создать свою игру?',
+                a: 'Нажмите "Создать игру" на главной странице, настройте параметры и поделитесь ссылкой с друзьями.'
+              },
+              {
+                q: 'Что такое "Особое условие" и "Факт"?',
+                a: 'Это карты, которые переворачиваются в процессе игры и могут кардинально изменить ситуацию. Факт раскрывает тайну о вашем персонаже, а Особое условие добавляет уникальную ситуацию.'
+              },
+              {
+                q: 'Можно ли играть с незнакомыми людьми?',
+                a: 'Да! Вы можете присоединиться к любой открытой игре в списке активных комнат.'
+              },
+              {
+                q: 'Есть ли голосовой чат в игре?',
+                a: 'Пока нет встроенного голосового чата, но вы можете использовать Discord, Zoom или любой другой сервис для общения с игроками.'
+              },
+            ].map((item, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: idx * 0.05 }}
+                viewport={{ once: true }}
+                className="relative group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-800/10 to-slate-700/10 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all duration-300">
+                  <button
+                    onClick={() => setFaqOpen(faqOpen === idx ? null : idx)}
+                    className="w-full p-6 flex items-start gap-4 text-left"
+                  >
+                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-orange-500/20 to-red-600/20 rounded-lg flex items-center justify-center mt-1">
+                      <span className="text-orange-400 font-bold text-sm">{String(idx + 1).padStart(2, '0')}</span>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold mb-2 pr-8">{item.q}</h3>
+                      <AnimatePresence>
+                        {faqOpen === idx && (
+                          <motion.p
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="text-gray-400 leading-relaxed overflow-hidden"
+                          >
+                            {item.a}
+                          </motion.p>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    <motion.div
+                      animate={{ rotate: faqOpen === idx ? 180 : 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex-shrink-0"
+                    >
+                      <ChevronDown className="w-5 h-5 text-gray-400" />
+                    </motion.div>
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Additional Help */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            viewport={{ once: true }}
+            className="mt-12 text-center"
+          >
+            <p className="text-gray-400 mb-4">Не нашли ответ на свой вопрос?</p>
+            <Link
+              href="/support"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl transition-all duration-200"
+            >
+              <MessageCircle className="w-5 h-5" />
+              Связаться с поддержкой
+            </Link>
+          </motion.div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="max-w-[1600px] mx-auto px-6 py-20">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="relative"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 via-red-500/20 to-orange-500/20 rounded-3xl blur-3xl" />
+            <div className="relative bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-xl border border-white/20 rounded-3xl p-16 text-center">
+              <h2 className="text-4xl md:text-6xl font-black mb-6">
+                Готов выжить?
+              </h2>
+              <p className="text-xl text-gray-300 mb-10 max-w-2xl mx-auto">
+                Создай игру или присоединись к существующей. Битва за место в бункере начинается прямо сейчас!
               </p>
+              <div className="flex flex-col sm:flex-row gap-6 justify-center">
+                <Link
+                  href="/lobby"
+                  className="px-12 py-5 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 rounded-xl font-bold text-xl shadow-2xl shadow-orange-500/50 transition-all duration-300 transform hover:scale-105"
+                >
+                  <span className="flex items-center justify-center gap-3">
+                    <Play className="w-6 h-6" />
+                    Начать играть
+                  </span>
+                </Link>
+                <Link
+                  href="/rules"
+                  className="px-12 py-5 bg-white/5 border-2 border-white/20 hover:border-white/40 rounded-xl font-bold text-xl transition-all duration-300"
+                >
+                  К правилам
+                </Link>
+              </div>
             </div>
+          </motion.div>
+        </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gray-800 rounded-lg p-8 text-center hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-300 border border-gray-700">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-500/10 rounded-lg mb-6">
-                  <Users className="h-8 w-8 text-orange-500" />
-                </div>
-                <h3 className="text-xl font-bold text-foreground mb-4">Многопользовательская игра</h3>
-                <p className="text-muted-foreground">Играйте с друзьями или случайными игроками онлайн</p>
-              </div>
-
-              <div className="bg-gray-800 rounded-lg p-8 text-center hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-300 border border-gray-700">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-500/10 rounded-lg mb-6">
-                  <Shield className="h-8 w-8 text-orange-500" />
-                </div>
-                <h3 className="text-xl font-bold text-foreground mb-4">Уникальные роли</h3>
-                <p className="text-muted-foreground">Каждый игрок получает уникальную специальность и характеристики</p>
-              </div>
-
-              <div className="bg-gray-800 rounded-lg p-8 text-center hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-300 border border-gray-700">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-500/10 rounded-lg mb-6">
-                  <Zap className="h-8 w-8 text-orange-500" />
-                </div>
-                <h3 className="text-xl font-bold text-foreground mb-4">Быстрые матчи</h3>
-                <p className="text-muted-foreground">Игры длятся 15-30 минут, идеально для любого расписания</p>
+        {/* Footer */}
+        <footer className="border-t border-white/10 bg-black/30 backdrop-blur-xl">
+          <div className="container mx-auto px-6 py-12">
+            <div className="text-center text-gray-400">
+              <p className="mb-4">© 2025 Бункер Онлайн. Все права защищены.</p>
+              <div className="flex justify-center gap-6 text-sm">
+                <Link href="/rules" className="hover:text-white transition-colors">Правила</Link>
+                <Link href="/privacy" className="hover:text-white transition-colors">Конфиденциальность</Link>
+                <Link href="/support" className="hover:text-white transition-colors">Поддержка</Link>
               </div>
             </div>
           </div>
-        </section>
-
-        {/* How to Play Section */}
-        <section className="bg-card/50 py-16">
-          <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto text-center">
-              <h2 className="text-4xl font-bold text-foreground mb-8">Как играть</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
-                <div className="space-y-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="text-primary-foreground font-bold">1</span>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground mb-2">Получите роль</h3>
-                      <p className="text-muted-foreground">Каждый игрок получает уникальную специальность, возраст, пол и особенности.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="text-primary-foreground font-bold">2</span>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground mb-2">Обсуждение</h3>
-                      <p className="text-muted-foreground">Убедите других игроков в своей полезности для выживания в бункере.</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="text-primary-foreground font-bold">3</span>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground mb-2">Голосование</h3>
-                      <p className="text-muted-foreground">Каждый раунд игроки голосуют за исключение одного участника.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="text-primary-foreground font-bold">4</span>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground mb-2">Победа</h3>
-                      <p className="text-muted-foreground">Выживите до конца и займите место в бункере!</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
+        </footer>
       </div>
     </div>
   );
 }
-// База для REST API сервера: env или текущий хост
-// const API_BASE = process.env.NEXT_PUBLIC_API_URL
-//   || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '');
-// const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4000';
