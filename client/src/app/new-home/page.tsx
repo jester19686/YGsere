@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Play, Users, Shield, Zap, Trophy, Clock, Flame, Target, ChevronDown, ChevronRight, User, Maximize, MessageCircle, Vote, Crown, Menu, X, ArrowUp, ArrowDown, TrendingUp } from 'lucide-react';
+import { Play, Users, Shield, Zap, Trophy, Clock, Flame, Target, ChevronDown, ChevronRight, User, Maximize, MessageCircle, Vote, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CardsCarousel from '@/components/CardsCarousel';
 import AnimatedCounter from '@/components/AnimatedCounter';
@@ -309,68 +309,44 @@ export default function NewHomePage() {
           </div>
         </section>
 
-        {/* Live Stats Bar - Enhanced */}
-        <section className="max-w-[1600px] mx-auto px-6 py-12">
+        {/* Live Stats Bar - Minimalist */}
+        <section className="max-w-[1600px] mx-auto px-6 py-8">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+            className="grid grid-cols-1 md:grid-cols-3 gap-4"
           >
             {/* Игроков онлайн */}
             <motion.div 
               className="relative group"
-              whileHover={{ y: -5, scale: 1.02 }}
-              transition={{ duration: 0.3 }}
+              whileHover={{ y: -2 }}
+              transition={{ duration: 0.2 }}
             >
-              {/* Enhanced Glow Effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-green-500/30 to-emerald-500/30 rounded-2xl blur-2xl group-hover:blur-3xl opacity-75 group-hover:opacity-100 transition-all duration-500" />
+              <div className="absolute inset-0 bg-green-500/5 rounded-xl blur-xl group-hover:bg-green-500/10 transition-all duration-300" />
               
-              {/* SVG Background Decorations */}
-              <svg className="absolute right-0 top-0 w-48 h-48 pointer-events-none opacity-20 group-hover:opacity-30 transition-opacity duration-500" viewBox="0 0 200 200" fill="none">
-                <circle cx="150" cy="60" r="40" fill="currentColor" className="text-green-400" />
-                <circle cx="170" cy="100" r="25" fill="currentColor" className="text-emerald-300 opacity-70" />
-                <circle cx="135" cy="90" r="18" fill="currentColor" className="text-green-500 opacity-50" />
-              </svg>
-
-              {/* Card */}
-              <div className="relative bg-gradient-to-br from-green-900/40 via-emerald-900/30 to-slate-900/90 backdrop-blur-xl border border-green-500/20 rounded-2xl p-8 hover:border-green-500/50 transition-all duration-500 overflow-hidden shadow-2xl">
-                <div className="flex items-start justify-between mb-6">
-                  <motion.div
-                    animate={{ 
-                      scale: [1, 1.1, 1],
-                      rotate: [0, 5, -5, 0]
-                    }}
-                    transition={{ 
-                      duration: 3,
-                      repeat: Infinity,
-                      repeatType: "reverse"
-                    }}
-                  >
-                    <Users className="w-12 h-12 text-green-400 drop-shadow-[0_0_10px_rgba(74,222,128,0.5)]" />
-                  </motion.div>
-                  <div className="flex flex-col items-end gap-2">
-                    <div className="flex items-center gap-2 bg-green-500/20 px-3 py-1.5 rounded-full backdrop-blur-sm">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(74,222,128,0.8)]" />
-                      <span className="text-xs text-green-400 font-bold uppercase tracking-wider">Live</span>
+              <div className="relative bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-xl p-5 hover:border-green-500/30 transition-all duration-300">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
+                      <Users className="w-5 h-5 text-green-400" />
                     </div>
-                    <div className="flex items-center gap-1.5 bg-green-500/10 px-2.5 py-1 rounded-md">
-                      <ArrowUp className="w-3.5 h-3.5 text-green-400" />
-                      <span className="text-xs text-green-400 font-semibold">+12.5%</span>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                      <span className="text-[10px] text-green-400 font-medium uppercase tracking-wide">Online</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="relative z-10">
-                  <div className="text-5xl font-black text-white mb-2 drop-shadow-lg">
+                <div className="space-y-1">
+                  <div className="text-3xl font-bold text-white">
                     {loading ? (
                       <span className="animate-pulse">...</span>
                     ) : (
                       <AnimatedCounter value={stats.activePlayers} />
                     )}
                   </div>
-                  <div className="text-gray-300 font-semibold text-lg">Игроков онлайн</div>
-                  <div className="text-xs text-green-400/70 mt-2 font-medium">Обновлено только что</div>
+                  <div className="text-sm text-gray-400">Игроков сейчас</div>
                 </div>
               </div>
             </motion.div>
@@ -378,61 +354,33 @@ export default function NewHomePage() {
             {/* Активных игр */}
             <motion.div 
               className="relative group"
-              whileHover={{ y: -5, scale: 1.02 }}
-              transition={{ duration: 0.3 }}
+              whileHover={{ y: -2 }}
+              transition={{ duration: 0.2 }}
             >
-              {/* Enhanced Glow Effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 to-cyan-500/30 rounded-2xl blur-2xl group-hover:blur-3xl opacity-75 group-hover:opacity-100 transition-all duration-500" />
+              <div className="absolute inset-0 bg-orange-500/5 rounded-xl blur-xl group-hover:bg-orange-500/10 transition-all duration-300" />
               
-              {/* SVG Background Decorations */}
-              <svg className="absolute right-0 top-0 w-48 h-48 pointer-events-none opacity-20 group-hover:opacity-30 transition-opacity duration-500" viewBox="0 0 200 200" fill="none">
-                <defs>
-                  <filter id="blur-blue" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="12" />
-                  </filter>
-                </defs>
-                <rect x="120" y="0" width="70" height="70" rx="35" fill="currentColor" className="text-blue-400 opacity-60" filter="url(#blur-blue)" />
-                <ellipse cx="170" cy="80" rx="28" ry="12" fill="currentColor" className="text-cyan-300 opacity-80" />
-                <circle cx="150" cy="30" r="10" fill="currentColor" className="text-blue-500" />
-              </svg>
-
-              {/* Card */}
-              <div className="relative bg-gradient-to-br from-blue-900/40 via-cyan-900/30 to-slate-900/90 backdrop-blur-xl border border-blue-500/20 rounded-2xl p-8 hover:border-blue-500/50 transition-all duration-500 overflow-hidden shadow-2xl">
-                <div className="flex items-start justify-between mb-6">
-                  <motion.div
-                    animate={{ 
-                      rotate: [0, 360]
-                    }}
-                    transition={{ 
-                      duration: 8,
-                      repeat: Infinity,
-                      ease: "linear"
-                    }}
-                  >
-                    <Target className="w-12 h-12 text-blue-400 drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
-                  </motion.div>
-                  <div className="flex flex-col items-end gap-2">
-                    <div className="flex items-center gap-2 bg-blue-500/20 px-3 py-1.5 rounded-full backdrop-blur-sm">
-                      <Flame className="w-4 h-4 text-blue-400 animate-pulse" />
-                      <span className="text-xs text-blue-400 font-bold uppercase tracking-wider">Hot</span>
+              <div className="relative bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-xl p-5 hover:border-orange-500/30 transition-all duration-300">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
+                      <Target className="w-5 h-5 text-orange-400" />
                     </div>
-                    <div className="flex items-center gap-1.5 bg-blue-500/10 px-2.5 py-1 rounded-md">
-                      <TrendingUp className="w-3.5 h-3.5 text-blue-400" />
-                      <span className="text-xs text-blue-400 font-semibold">+50%</span>
+                    <div className="flex items-center gap-1.5">
+                      <Flame className="w-3 h-3 text-orange-400 animate-pulse" />
+                      <span className="text-[10px] text-orange-400 font-medium uppercase tracking-wide">Active</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="relative z-10">
-                  <div className="text-5xl font-black text-white mb-2 drop-shadow-lg">
+                <div className="space-y-1">
+                  <div className="text-3xl font-bold text-white">
                     {loading ? (
                       <span className="animate-pulse">...</span>
                     ) : (
                       <AnimatedCounter value={stats.activeGames} />
                     )}
                   </div>
-                  <div className="text-gray-300 font-semibold text-lg">Активных игр</div>
-                  <div className="text-xs text-blue-400/70 mt-2 font-medium">Присоединяйся сейчас!</div>
+                  <div className="text-sm text-gray-400">Игр идёт</div>
                 </div>
               </div>
             </motion.div>
@@ -440,62 +388,33 @@ export default function NewHomePage() {
             {/* Завершено игр */}
             <motion.div 
               className="relative group"
-              whileHover={{ y: -5, scale: 1.02 }}
-              transition={{ duration: 0.3 }}
+              whileHover={{ y: -2 }}
+              transition={{ duration: 0.2 }}
             >
-              {/* Enhanced Glow Effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 to-pink-500/30 rounded-2xl blur-2xl group-hover:blur-3xl opacity-75 group-hover:opacity-100 transition-all duration-500" />
+              <div className="absolute inset-0 bg-slate-500/5 rounded-xl blur-xl group-hover:bg-slate-500/10 transition-all duration-300" />
               
-              {/* SVG Background Decorations */}
-              <svg className="absolute right-0 top-0 w-48 h-48 pointer-events-none opacity-20 group-hover:opacity-30 transition-opacity duration-500" viewBox="0 0 200 200" fill="none">
-                <defs>
-                  <filter id="blur-purple" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="16" />
-                  </filter>
-                </defs>
-                <polygon points="200,0 200,100 100,0" fill="currentColor" className="text-purple-400 opacity-50" />
-                <ellipse cx="170" cy="40" rx="30" ry="18" fill="currentColor" className="text-pink-300 opacity-70" filter="url(#blur-purple)" />
-                <circle cx="150" cy="30" r="14" fill="currentColor" className="text-purple-500 opacity-80" />
-              </svg>
-
-              {/* Card */}
-              <div className="relative bg-gradient-to-br from-purple-900/40 via-pink-900/30 to-slate-900/90 backdrop-blur-xl border border-purple-500/20 rounded-2xl p-8 hover:border-purple-500/50 transition-all duration-500 overflow-hidden shadow-2xl">
-                <div className="flex items-start justify-between mb-6">
-                  <motion.div
-                    animate={{ 
-                      scale: [1, 1.2, 1],
-                      y: [0, -5, 0]
-                    }}
-                    transition={{ 
-                      duration: 2,
-                      repeat: Infinity,
-                      repeatType: "reverse"
-                    }}
-                  >
-                    <Trophy className="w-12 h-12 text-purple-400 drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
-                  </motion.div>
-                  <div className="flex flex-col items-end gap-2">
-                    <div className="flex items-center gap-2 bg-purple-500/20 px-3 py-1.5 rounded-full backdrop-blur-sm">
-                      <Crown className="w-4 h-4 text-purple-400" />
-                      <span className="text-xs text-purple-400 font-bold uppercase tracking-wider">Total</span>
+              <div className="relative bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-xl p-5 hover:border-slate-600/50 transition-all duration-300">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-700/30 rounded-lg flex items-center justify-center">
+                      <Trophy className="w-5 h-5 text-slate-400" />
                     </div>
-                    <div className="flex items-center gap-1.5 bg-purple-500/10 px-2.5 py-1 rounded-md">
-                      <ArrowUp className="w-3.5 h-3.5 text-purple-400" />
-                      <span className="text-xs text-purple-400 font-semibold">+8.3%</span>
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="w-3 h-3 text-slate-400" />
+                      <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Total</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="relative z-10">
-                  <div className="text-5xl font-black text-white mb-2 drop-shadow-lg">
+                <div className="space-y-1">
+                  <div className="text-3xl font-bold text-white">
                     {loading ? (
                       <span className="animate-pulse">...</span>
                     ) : (
                       <AnimatedCounter value={stats.completedGames} />
                     )}
                   </div>
-                  <div className="text-gray-300 font-semibold text-lg">Завершено игр</div>
-                  <div className="text-xs text-purple-400/70 mt-2 font-medium">Всего сыграно</div>
+                  <div className="text-sm text-gray-400">Завершено</div>
                 </div>
               </div>
             </motion.div>
