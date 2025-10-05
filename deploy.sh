@@ -30,15 +30,15 @@ build_front() {
 }
 
 restart_front() {
-  echo "[PM2] restart bunker-web"
-  PORT=3000 pm2 restart bunker-web --time || PORT=3000 pm2 start "npm run start" --name bunker-web --time
+  echo "[PM2] restart bunker-frontend"
+  cd "$CLIENT_DIR"
+  pm2 restart bunker-frontend --update-env || pm2 start npm --name bunker-frontend -- start
 }
 
 restart_back() {
-  echo "[PM2] restart bunker-ws"
-  FRONT_ORIGIN="https://bunker-zone.ru" NODE_ENV="production" PORT="4000" \
-  pm2 restart bunker-ws --update-env --time || \
-  FRONT_ORIGIN="https://bunker-zone.ru" NODE_ENV="production" PORT="4000" pm2 start index.js --name bunker-ws --time
+  echo "[PM2] restart bunker-backend"
+  cd "$REPO_DIR"
+  pm2 restart bunker-backend --update-env || pm2 start index.js --name bunker-backend
 }
 
 save_pm2() {
