@@ -1,13 +1,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { motion, useSpring, useTransform } from 'framer-motion';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 
 interface AnimatedCounterProps {
   value: number;
-  duration?: number;
   className?: string;
-  decimals?: number;
 }
 
 export default function AnimatedCounter({ 
@@ -15,21 +13,20 @@ export default function AnimatedCounter({
   className = ''
 }: AnimatedCounterProps) {
   const nodeRef = useRef<HTMLSpanElement>(null);
+  const motionValue = useMotionValue(0);
   
-  // Используем spring для плавной анимации
-  const spring = useSpring(0, {
-    mass: 0.8,
-    stiffness: 75,
-    damping: 15,
-  });
-
-  const display = useTransform(spring, (current) => {
+  const display = useTransform(motionValue, (current) => {
     return Math.floor(current).toLocaleString();
   });
 
   useEffect(() => {
-    spring.set(value);
-  }, [spring, value]);
+    const controls = animate(motionValue, value, {
+      duration: 1.5,
+      ease: 'easeOut',
+    });
+
+    return controls.stop;
+  }, [motionValue, value]);
 
   return (
     <motion.span 
