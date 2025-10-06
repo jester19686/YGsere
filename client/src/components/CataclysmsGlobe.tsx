@@ -13,6 +13,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
   const globeRef = useRef<ReturnType<typeof createGlobe> | null>(null);
   const [currentPhi, setCurrentPhi] = useState(0);
   const [currentTheta, setCurrentTheta] = useState(0.3);
+  const [isHovering, setIsHovering] = useState(false);
   const pointerInteracting = useRef<number | null>(null);
   const pointerInteractionMovement = useRef(0);
   
@@ -110,7 +111,8 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
         color: cataclysm.color,
       })),
       onRender: (state) => {
-        if (!pointerInteracting.current) {
+        // Вращение продолжается только если мышка НЕ на глобусе и пользователь НЕ взаимодействует
+        if (!pointerInteracting.current && !isHovering) {
           phi += 0.005;
         }
         state.phi = phi + pointerInteractionMovement.current;
@@ -173,13 +175,15 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
       canvas.removeEventListener('touchmove', onTouchMove);
       globe.destroy();
     };
-  }, []);
+  }, [isHovering]);
 
   return (
     <div className="relative w-full h-full flex items-center justify-center">
       <canvas
         ref={canvasRef}
         onClick={(e) => handleCanvasClick(e.nativeEvent)}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
         className="w-full h-full max-w-[800px] max-h-[800px]"
         style={{
           width: '100%',
