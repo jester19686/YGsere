@@ -13,9 +13,9 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
   const globeRef = useRef<ReturnType<typeof createGlobe> | null>(null);
   const [currentPhi, setCurrentPhi] = useState(0);
   const [currentTheta, setCurrentTheta] = useState(0.3);
-  const isHoveringRef = useRef(false); // Изменено с useState на useRef для правильной работы в onRender
-  const pointerInteracting = useRef<number | null>(null);
-  const pointerInteractionMovement = useRef(0);
+  const isHoveringRef = useRef(false);
+  const [hoveredCataclysm, setHoveredCataclysm] = useState<CataclysmData | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   
   // Упрощённая функция для проекции lat/lng на экран
   const projectToScreen = useCallback(
@@ -42,12 +42,17 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
     [currentPhi]
   );
 
-  // Обработчик клика по canvas
-  const handleCanvasClick = useCallback(
+  // Обновление hover состояния при движении мыши
+  const handleMouseMove = useCallback(
     (event: MouseEvent) => {
-      if (!canvasRef.current) return;
+      if (!canvasRef.current || !isHoveringRef.current) {
+        if (hoveredCataclysm) setHoveredCataclysm(null);
+        return;
+      }
 
-      const clickRadius = 120; // Радиус клика в пикселях
+      setMousePos({ x: event.clientX, y: event.clientY });
+
+      const hoverRadius = 80; // Радиус для индикатора hover
       let closestCataclysm: CataclysmData | null = null;
       let minDistance = Infinity;
       
@@ -59,7 +64,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
           canvasRef.current
         );
         
-        if (!projected) continue; // Точка на задней стороне глобуса
+        if (!projected) continue;
         
         const dx = projected.x - event.clientX;
         const dy = projected.y - event.clientY;
@@ -71,12 +76,25 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
         }
       }
       
-      // Кликаем только если нашли точку в пределах радиуса
-      if (closestCataclysm && minDistance <= clickRadius) {
-        onMarkerClick?.(closestCataclysm);
+      // Показываем индикатор если близко к точке
+      if (closestCataclysm && minDistance <= hoverRadius) {
+        setHoveredCataclysm(closestCataclysm);
+      } else {
+        setHoveredCataclysm(null);
       }
     },
-    [projectToScreen, onMarkerClick]
+    [projectToScreen, hoveredCataclysm]
+  );
+
+  // Обработчик клика по canvas
+  const handleCanvasClick = useCallback(
+    (event: MouseEvent) => {
+      // Кликаем на подсвеченную точку
+      if (hoveredCataclysm) {
+        onMarkerClick?.(hoveredCataclysm);
+      }
+    },
+    [hoveredCataclysm, onMarkerClick]
   );
 
   useEffect(() => {
@@ -111,11 +129,11 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
         color: cataclysm.color,
       })),
       onRender: (state) => {
-        // Вращение продолжается только если мышка НЕ на глобусе и пользователь НЕ взаимодействует
-        if (!pointerInteracting.current && !isHoveringRef.current) {
+        // Вращение продолжается только если мышка НЕ на глобусе
+        if (!isHoveringRef.current) {
           phi += 0.005;
         }
-        state.phi = phi + pointerInteractionMovement.current;
+        state.phi = phi;
         setCurrentPhi(state.phi);
         setCurrentTheta(state.theta);
         state.width = width * 2;
@@ -127,52 +145,10 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
 
     // Обработчик кликов добавлен через onClick в JSX
     const canvas = canvasRef.current;
-
-    // Обработчики для вращения мышью
-    const onPointerDown = (e: PointerEvent) => {
-      pointerInteracting.current = e.clientX - pointerInteractionMovement.current;
-      if (canvas) canvas.style.cursor = 'grabbing';
-    };
-
-    const onPointerUp = () => {
-      pointerInteracting.current = null;
-      if (canvas) canvas.style.cursor = 'grab';
-    };
-
-    const onPointerOut = () => {
-      pointerInteracting.current = null;
-      if (canvas) canvas.style.cursor = 'grab';
-    };
-
-    const onMouseMove = (e: MouseEvent) => {
-      if (pointerInteracting.current !== null) {
-        const delta = e.clientX - pointerInteracting.current;
-        pointerInteractionMovement.current = delta / 200;
-      }
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 1 && pointerInteracting.current !== null) {
-        const delta = e.touches[0].clientX - pointerInteracting.current;
-        pointerInteractionMovement.current = delta / 100;
-      }
-    };
-
-    canvas.addEventListener('pointerdown', onPointerDown);
-    canvas.addEventListener('pointerup', onPointerUp);
-    canvas.addEventListener('pointerout', onPointerOut);
-    canvas.addEventListener('mousemove', onMouseMove);
-    canvas.addEventListener('touchmove', onTouchMove);
-
-    canvas.style.cursor = 'grab';
+    canvas.style.cursor = 'default';
 
     return () => {
       window.removeEventListener('resize', onResize);
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('pointerout', onPointerOut);
-      canvas.removeEventListener('mousemove', onMouseMove);
-      canvas.removeEventListener('touchmove', onTouchMove);
       globe.destroy();
     };
   }, []); // Убрал isHovering из dependencies - глобус создается только один раз!
@@ -182,11 +158,13 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
       <canvas
         ref={canvasRef}
         onClick={(e) => handleCanvasClick(e.nativeEvent)}
+        onMouseMove={(e) => handleMouseMove(e.nativeEvent)}
         onPointerEnter={() => {
           isHoveringRef.current = true;
         }}
         onPointerLeave={() => {
           isHoveringRef.current = false;
+          setHoveredCataclysm(null);
         }}
         className="w-full h-full max-w-[800px] max-h-[800px]"
         style={{
@@ -195,13 +173,45 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
           maxWidth: 800,
           maxHeight: 800,
           aspectRatio: '1',
+          cursor: hoveredCataclysm ? 'pointer' : 'default',
         }}
       />
+
+      {/* Индикатор при наведении на точку */}
+      {hoveredCataclysm && isHoveringRef.current && (
+        <div
+          className="fixed pointer-events-none"
+          style={{
+            left: mousePos.x,
+            top: mousePos.y,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          {/* Внешнее пульсирующее кольцо */}
+          <div className="absolute inset-0 -m-8 rounded-full border-2 border-orange-400 animate-ping" />
+          
+          {/* Среднее кольцо */}
+          <div className="absolute inset-0 -m-6 rounded-full border-2 border-orange-500 opacity-60 animate-pulse" />
+          
+          {/* Внутреннее яркое кольцо */}
+          <div className="absolute inset-0 -m-4 rounded-full border-4 border-orange-400 shadow-[0_0_20px_rgba(251,146,60,0.8)]" />
+          
+          {/* Центральная точка */}
+          <div className="absolute inset-0 -m-1 rounded-full bg-orange-500 shadow-[0_0_15px_rgba(251,146,60,1)]" />
+          
+          {/* Название катастрофы */}
+          <div className="absolute top-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
+            <div className="px-3 py-1 bg-black/90 backdrop-blur-sm rounded-lg border border-orange-500/50 shadow-lg">
+              <p className="text-orange-400 text-sm font-medium">{hoveredCataclysm.title}</p>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Инструкция */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-center">
         <p className="text-orange-300/80 text-sm md:text-base font-medium px-4 py-2 bg-black/50 backdrop-blur-sm rounded-lg border border-orange-500/30">
-          🌍 Кликните на точку, чтобы узнать о катаклизме
+          {hoveredCataclysm ? '👆 Нажмите, чтобы узнать подробности' : '🌍 Наведите на точку и кликните'}
         </p>
       </div>
     </div>
