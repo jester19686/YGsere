@@ -12,65 +12,31 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const globeRef = useRef<ReturnType<typeof createGlobe> | null>(null);
   const [currentPhi, setCurrentPhi] = useState(0);
+  const [currentTheta, setCurrentTheta] = useState(0.3);
   const pointerInteracting = useRef<number | null>(null);
   const pointerInteractionMovement = useRef(0);
   
-  // Конвертация lat/lng в радианы для COBE
-  const locationToAngles = (lat: number, lng: number) => {
-    return [
-      Math.PI - ((lng * Math.PI) / 180 - Math.PI / 2),
-      (lat * Math.PI) / 180,
-    ];
-  };
-
-  // Функция для определения расстояния между двумя точками на сфере
-  const getDistance = (
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number
-  ) => {
-    const [phi1, theta1] = locationToAngles(lat1, lng1);
-    const [phi2, theta2] = locationToAngles(lat2, lng2);
-
-    // Формула гаверсинусов для расстояния на сфере
-    const dPhi = phi2 - phi1;
-    const dTheta = theta2 - theta1;
-    const a =
-      Math.sin(dTheta / 2) * Math.sin(dTheta / 2) +
-      Math.cos(theta1) *
-        Math.cos(theta2) *
-        Math.sin(dPhi / 2) *
-        Math.sin(dPhi / 2);
-    return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  };
-
-  // Конвертация координат клика в lat/lng на глобусе
-  const getLatLngFromClick = useCallback(
-    (x: number, y: number, canvas: HTMLCanvasElement) => {
+  // Упрощённая функция для проекции lat/lng на экран
+  const projectToScreen = useCallback(
+    (lat: number, lng: number, canvas: HTMLCanvasElement) => {
       const rect = canvas.getBoundingClientRect();
-      const canvasX = x - rect.left;
-      const canvasY = y - rect.top;
-
-      // Нормализация координат к центру canvas
-      const normalizedX = (canvasX / rect.width) * 2 - 1;
-      const normalizedY = -((canvasY / rect.height) * 2 - 1);
-
-      // Проверка, что клик внутри круга (радиус ~1)
-      const distanceFromCenter = Math.sqrt(
-        normalizedX * normalizedX + normalizedY * normalizedY
-      );
-      if (distanceFromCenter > 0.95) return null; // Клик вне глобуса
-
-      // Конвертация в 3D координаты на сфере с учетом текущего вращения
-      const theta = Math.asin(normalizedY);
-      const phi = Math.atan2(normalizedX, Math.sqrt(1 - normalizedY * normalizedY));
-
-      // Конвертация обратно в lat/lng с учетом вращения глобуса
-      const lat = (theta * 180) / Math.PI;
-      const lng = ((phi - currentPhi) * 180) / Math.PI;
-
-      return { lat, lng };
+      const phi = ((lng + 180) * Math.PI) / 180 + currentPhi;
+      const theta = ((90 - lat) * Math.PI) / 180;
+      
+      // 3D координаты на сфере
+      const x = Math.sin(theta) * Math.cos(phi);
+      const y = Math.cos(theta);
+      const z = Math.sin(theta) * Math.sin(phi);
+      
+      // Проверка видимости (точка на передней стороне глобуса)
+      if (z < 0) return null;
+      
+      // Проекция на 2D экран
+      const scale = rect.width / 2.2; // Увеличен scale для более точной проекции
+      const screenX = rect.left + rect.width / 2 + x * scale;
+      const screenY = rect.top + rect.height / 2 - y * scale;
+      
+      return { x: screenX, y: screenY };
     },
     [currentPhi]
   );
@@ -80,32 +46,36 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
     (event: MouseEvent) => {
       if (!canvasRef.current) return;
 
-      const clickCoords = getLatLngFromClick(
-        event.clientX,
-        event.clientY,
-        canvasRef.current
-      );
-
-      if (!clickCoords) return;
-
-      // Проверяем, кликнул ли пользователь рядом с каким-то маркером
-      const threshold = 0.3; // Радиус клика (чувствительность)
+      const clickRadius = 120; // Радиус клика в пикселях
+      let closestCataclysm: CataclysmData | null = null;
+      let minDistance = Infinity;
       
+      // Находим ближайший видимый маркер
       for (const cataclysm of CATACLYSMS_DATA) {
-        const distance = getDistance(
-          clickCoords.lat,
-          clickCoords.lng,
+        const projected = projectToScreen(
           cataclysm.location[0],
-          cataclysm.location[1]
+          cataclysm.location[1],
+          canvasRef.current
         );
-
-        if (distance < threshold) {
-          onMarkerClick?.(cataclysm);
-          return;
+        
+        if (!projected) continue; // Точка на задней стороне глобуса
+        
+        const dx = projected.x - event.clientX;
+        const dy = projected.y - event.clientY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestCataclysm = cataclysm;
         }
       }
+      
+      // Кликаем только если нашли точку в пределах радиуса
+      if (closestCataclysm && minDistance <= clickRadius) {
+        onMarkerClick?.(closestCataclysm);
+      }
     },
-    [getLatLngFromClick, getDistance, onMarkerClick]
+    [projectToScreen, onMarkerClick]
   );
 
   useEffect(() => {
@@ -145,6 +115,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
         }
         state.phi = phi + pointerInteractionMovement.current;
         setCurrentPhi(state.phi);
+        setCurrentTheta(state.theta);
         state.width = width * 2;
         state.height = width * 2;
       },
@@ -152,9 +123,8 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
 
     globeRef.current = globe;
 
-    // Добавляем обработчик кликов
+    // Обработчик кликов добавлен через onClick в JSX
     const canvas = canvasRef.current;
-    canvas.addEventListener('click', handleCanvasClick);
 
     // Обработчики для вращения мышью
     const onPointerDown = (e: PointerEvent) => {
@@ -196,7 +166,6 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
 
     return () => {
       window.removeEventListener('resize', onResize);
-      canvas.removeEventListener('click', handleCanvasClick);
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointerout', onPointerOut);
@@ -204,12 +173,13 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
       canvas.removeEventListener('touchmove', onTouchMove);
       globe.destroy();
     };
-  }, [handleCanvasClick]);
+  }, []);
 
   return (
     <div className="relative w-full h-full flex items-center justify-center">
       <canvas
         ref={canvasRef}
+        onClick={(e) => handleCanvasClick(e.nativeEvent)}
         className="w-full h-full max-w-[800px] max-h-[800px]"
         style={{
           width: '100%',
