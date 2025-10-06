@@ -175,7 +175,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
       canvas.removeEventListener('touchmove', onTouchMove);
       globe.destroy();
     };
-  }, [isHovering]);
+  }, []); // Убрал isHovering из dependencies - глобус создается только один раз!
 
   return (
     <div className="relative w-full h-full flex items-center justify-center">
