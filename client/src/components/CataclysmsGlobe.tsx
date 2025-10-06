@@ -182,8 +182,8 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
       <canvas
         ref={canvasRef}
         onClick={(e) => handleCanvasClick(e.nativeEvent)}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
+        onPointerEnter={() => setIsHovering(true)}
+        onPointerLeave={() => setIsHovering(false)}
         className="w-full h-full max-w-[800px] max-h-[800px]"
         style={{
           width: '100%',
