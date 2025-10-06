@@ -15,7 +15,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
   const [currentTheta, setCurrentTheta] = useState(0.3);
   const isHoveringRef = useRef(false);
   const [hoveredCataclysm, setHoveredCataclysm] = useState<CataclysmData | null>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [markerScreenPos, setMarkerScreenPos] = useState<{ x: number; y: number } | null>(null);
   
   // Упрощённая функция для проекции lat/lng на экран
   const projectToScreen = useCallback(
@@ -46,14 +46,16 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
   const handleMouseMove = useCallback(
     (event: MouseEvent) => {
       if (!canvasRef.current || !isHoveringRef.current) {
-        if (hoveredCataclysm) setHoveredCataclysm(null);
+        if (hoveredCataclysm) {
+          setHoveredCataclysm(null);
+          setMarkerScreenPos(null);
+        }
         return;
       }
 
-      setMousePos({ x: event.clientX, y: event.clientY });
-
       const hoverRadius = 80; // Радиус для индикатора hover
       let closestCataclysm: CataclysmData | null = null;
+      let closestProjected: { x: number; y: number } | null = null;
       let minDistance = Infinity;
       
       // Находим ближайший видимый маркер
@@ -64,7 +66,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
           canvasRef.current
         );
         
-        if (!projected) continue;
+        if (!projected) continue; // Точка на задней стороне глобуса
         
         const dx = projected.x - event.clientX;
         const dy = projected.y - event.clientY;
@@ -73,14 +75,17 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
         if (distance < minDistance) {
           minDistance = distance;
           closestCataclysm = cataclysm;
+          closestProjected = projected;
         }
       }
       
       // Показываем индикатор если близко к точке
-      if (closestCataclysm && minDistance <= hoverRadius) {
+      if (closestCataclysm && closestProjected && minDistance <= hoverRadius) {
         setHoveredCataclysm(closestCataclysm);
+        setMarkerScreenPos(closestProjected); // Сохраняем позицию ТОЧКИ, а не курсора
       } else {
         setHoveredCataclysm(null);
+        setMarkerScreenPos(null);
       }
     },
     [projectToScreen, hoveredCataclysm]
@@ -178,31 +183,31 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
       />
 
       {/* Индикатор при наведении на точку */}
-      {hoveredCataclysm && isHoveringRef.current && (
+      {hoveredCataclysm && markerScreenPos && isHoveringRef.current && (
         <div
-          className="fixed pointer-events-none"
+          className="fixed pointer-events-none z-50"
           style={{
-            left: mousePos.x,
-            top: mousePos.y,
+            left: markerScreenPos.x,
+            top: markerScreenPos.y,
             transform: 'translate(-50%, -50%)',
           }}
         >
           {/* Внешнее пульсирующее кольцо */}
-          <div className="absolute inset-0 -m-8 rounded-full border-2 border-orange-400 animate-ping" />
+          <div className="absolute inset-0 -m-10 rounded-full border-2 border-orange-400 animate-ping" />
           
           {/* Среднее кольцо */}
-          <div className="absolute inset-0 -m-6 rounded-full border-2 border-orange-500 opacity-60 animate-pulse" />
+          <div className="absolute inset-0 -m-7 rounded-full border-3 border-orange-500 opacity-60 animate-pulse" />
           
           {/* Внутреннее яркое кольцо */}
-          <div className="absolute inset-0 -m-4 rounded-full border-4 border-orange-400 shadow-[0_0_20px_rgba(251,146,60,0.8)]" />
+          <div className="absolute inset-0 -m-5 rounded-full border-4 border-orange-400 shadow-[0_0_25px_rgba(251,146,60,0.9)]" />
           
           {/* Центральная точка */}
-          <div className="absolute inset-0 -m-1 rounded-full bg-orange-500 shadow-[0_0_15px_rgba(251,146,60,1)]" />
+          <div className="absolute inset-0 -m-2 rounded-full bg-orange-500 shadow-[0_0_20px_rgba(251,146,60,1)] animate-pulse" />
           
           {/* Название катастрофы */}
-          <div className="absolute top-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
-            <div className="px-3 py-1 bg-black/90 backdrop-blur-sm rounded-lg border border-orange-500/50 shadow-lg">
-              <p className="text-orange-400 text-sm font-medium">{hoveredCataclysm.title}</p>
+          <div className="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap">
+            <div className="px-4 py-2 bg-black/95 backdrop-blur-sm rounded-lg border-2 border-orange-500/70 shadow-[0_0_15px_rgba(251,146,60,0.5)]">
+              <p className="text-orange-400 text-sm font-bold drop-shadow-lg">{hoveredCataclysm.title}</p>
             </div>
           </div>
         </div>
