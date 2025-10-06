@@ -176,9 +176,9 @@ const ActiveGamesTable: React.FC<ActiveGamesTableProps> = ({
 
   return (
     <div className="relative">
-      {/* Фильтры */}
+      {/* Фильтры - Desktop */}
       {showFilters && (
-        <div className="mb-6 flex flex-wrap gap-4">
+        <div className="hidden md:flex mb-6 flex-wrap gap-4">
           {/* Фильтр по типу игры */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-400">Игра:</span>
@@ -226,8 +226,58 @@ const ActiveGamesTable: React.FC<ActiveGamesTableProps> = ({
         </div>
       )}
 
-      {/* Таблица */}
-      <div className="relative group">
+      {/* Фильтры - Mobile (компактные) */}
+      {showFilters && (
+        <div className="md:hidden mb-6 space-y-3">
+          {/* Тип игры */}
+          <div>
+            <span className="text-xs text-gray-500 uppercase tracking-wider mb-2 block">Игра</span>
+            <div className="flex gap-2">
+              {['all', 'bunker', 'whoami'].map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setFilterGame(type as 'all' | 'bunker' | 'whoami')}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    filterGame === type
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-slate-800/50 text-gray-400'
+                  }`}
+                >
+                  {type === 'all' ? 'Все' : type === 'bunker' ? 'Бункер' : 'Кто я?'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Статус */}
+          <div>
+            <span className="text-xs text-gray-500 uppercase tracking-wider mb-2 block">Статус</span>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'all', label: 'Все' },
+                { value: 'open', label: 'Открытые' },
+                { value: 'closed', label: 'Закрытые' },
+                { value: 'playing', label: 'В игре' },
+              ].map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setFilterStatus(value as 'all' | 'open' | 'closed' | 'playing')}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    filterStatus === value
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-slate-800/50 text-gray-400'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Таблица - Desktop */}
+      <div className="hidden md:block relative group">
         <div className="absolute inset-0 bg-gradient-to-r from-slate-800/20 to-slate-700/20 rounded-2xl blur-xl" />
         <div className="relative bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
           {/* Table Header */}
@@ -407,6 +457,150 @@ const ActiveGamesTable: React.FC<ActiveGamesTableProps> = ({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Карточки - Mobile */}
+      <div className="md:hidden space-y-4">
+        {loading ? (
+          <div className="p-12 text-center text-gray-500">
+            <div className="inline-block w-8 h-8 border-4 border-gray-700 border-t-orange-500 rounded-full animate-spin mb-4" />
+            <p>Загрузка...</p>
+          </div>
+        ) : filteredRooms.length === 0 ? (
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-800/20 to-slate-700/20 rounded-2xl blur-xl" />
+            <div className="relative bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-2xl p-8 text-center">
+              <Shield className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+              <p className="text-gray-400 text-base mb-2">
+                {filterGame !== 'all' || filterStatus !== 'all'
+                  ? 'Нет игр с выбранными фильтрами'
+                  : 'Нет активных игр'}
+              </p>
+              <p className="text-gray-600 text-sm">
+                {filterGame !== 'all' || filterStatus !== 'all'
+                  ? 'Попробуйте изменить фильтры'
+                  : 'Будь первым, кто создаст игру!'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <AnimatePresence mode="popLayout">
+            {paginatedRooms.map((room, idx) => {
+              const status = getRoomStatus(room);
+              const StatusIcon = status.icon;
+              const isJoinable = !room.started && room.open;
+
+              return (
+                <motion.div
+                  key={room.code}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3, delay: idx * 0.05 }}
+                  className="relative group"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-slate-800/20 to-slate-700/20 rounded-2xl blur-xl" />
+                  <div className={`relative bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-2xl p-4 transition-all duration-200 ${
+                    isJoinable ? 'hover:border-orange-500/30' : 'opacity-70'
+                  }`}>
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <User className="w-5 h-5 text-gray-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-300 text-sm">{room.hostNick}</p>
+                          <p className="text-xs text-gray-500">Код: {room.code}</p>
+                        </div>
+                      </div>
+                      
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${status.bgColor} border ${status.borderColor} rounded-full ${status.color} text-xs font-medium`}>
+                        <StatusIcon className="w-3.5 h-3.5" />
+                        {status.label}
+                      </span>
+                    </div>
+
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-slate-950/50 rounded-lg p-3 border border-white/5">
+                        <p className="text-xs text-gray-500 mb-1">Игроков</p>
+                        <p className="text-sm font-semibold text-gray-300">
+                          {room.count}/{room.maxPlayers}
+                        </p>
+                      </div>
+                      <div className="bg-slate-950/50 rounded-lg p-3 border border-white/5">
+                        <p className="text-xs text-gray-500 mb-1">Стадия</p>
+                        <p className="text-sm font-semibold text-gray-300">
+                          {getGameStage(room)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    {room.started ? (
+                      <div className="flex items-center justify-center gap-2 py-2 text-gray-500 text-sm">
+                        <Flame className="w-4 h-4" />
+                        <span>Игра началась</span>
+                      </div>
+                    ) : !room.open ? (
+                      <div className="flex items-center justify-center gap-2 py-2 text-gray-500 text-sm">
+                        <Shield className="w-4 h-4" />
+                        <span>Лобби закрыто</span>
+                      </div>
+                    ) : (
+                      <Link
+                        href={`/lobby?join=${room.code}`}
+                        className="block w-full py-2.5 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 rounded-lg font-medium text-sm text-center transition-all duration-200"
+                      >
+                        Подключиться
+                      </Link>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        )}
+
+        {/* Pagination - Mobile */}
+        {showPagination && totalPages > 1 && !loading && filteredRooms.length > 0 && (
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-xs text-gray-500">
+              {paginatedRooms.length} из {filteredRooms.length}
+            </span>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  currentPage === 1
+                    ? 'bg-slate-800/30 text-gray-600 cursor-not-allowed'
+                    : 'bg-slate-800/50 text-gray-300'
+                }`}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <span className="text-xs text-gray-400 px-2">
+                {currentPage} / {totalPages}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  currentPage === totalPages
+                    ? 'bg-slate-800/30 text-gray-600 cursor-not-allowed'
+                    : 'bg-slate-800/50 text-gray-300'
+                }`}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

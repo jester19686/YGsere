@@ -10,10 +10,19 @@ const __dirname = path.dirname(__filename);
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: [
-      'cdn.example.com', // твои домены с аватарками
-      'avatars.githubusercontent.com',
-      't.me',
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'cdn.example.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'avatars.githubusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 't.me',
+      },
     ],
   },
   // Укажем корень воркспейса (на уровень выше client/),
