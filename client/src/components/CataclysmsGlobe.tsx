@@ -13,7 +13,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
   const globeRef = useRef<ReturnType<typeof createGlobe> | null>(null);
   const [currentPhi, setCurrentPhi] = useState(0);
   const [currentTheta, setCurrentTheta] = useState(0.3);
-  const [isHovering, setIsHovering] = useState(false);
+  const isHoveringRef = useRef(false); // Изменено с useState на useRef для правильной работы в onRender
   const pointerInteracting = useRef<number | null>(null);
   const pointerInteractionMovement = useRef(0);
   
@@ -98,21 +98,21 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
       height: width * 2,
       phi: 0,
       theta: 0.3,
-      dark: 1,
-      diffuse: 1.2,
+      dark: 1.2,
+      diffuse: 1.5,
       mapSamples: 16000,
-      mapBrightness: 6,
-      baseColor: [0.2, 0.1, 0.05],
+      mapBrightness: 4,
+      baseColor: [0.15, 0.08, 0.03],
       markerColor: [1, 0.5, 0.2],
-      glowColor: [1, 0.4, 0.1],
+      glowColor: [1, 0.5, 0.1],
       markers: CATACLYSMS_DATA.map((cataclysm) => ({
         location: cataclysm.location,
-        size: 0.08,
+        size: 0.12, // Увеличил размер точек для лучшей видимости
         color: cataclysm.color,
       })),
       onRender: (state) => {
         // Вращение продолжается только если мышка НЕ на глобусе и пользователь НЕ взаимодействует
-        if (!pointerInteracting.current && !isHovering) {
+        if (!pointerInteracting.current && !isHoveringRef.current) {
           phi += 0.005;
         }
         state.phi = phi + pointerInteractionMovement.current;
@@ -182,8 +182,12 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
       <canvas
         ref={canvasRef}
         onClick={(e) => handleCanvasClick(e.nativeEvent)}
-        onPointerEnter={() => setIsHovering(true)}
-        onPointerLeave={() => setIsHovering(false)}
+        onPointerEnter={() => {
+          isHoveringRef.current = true;
+        }}
+        onPointerLeave={() => {
+          isHoveringRef.current = false;
+        }}
         className="w-full h-full max-w-[800px] max-h-[800px]"
         style={{
           width: '100%',
