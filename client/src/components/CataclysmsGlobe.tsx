@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { CATACLYSMS_DATA, CataclysmData } from '@/data/cataclysms';
+import { createStarField, createAtmosphere, setupLighting, enhanceRenderer } from './Globe3DEnhancements';
 
 interface CataclysmsGlobeProps {
   onMarkerClick?: (cataclysm: CataclysmData) => void;
@@ -27,9 +28,14 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
     );
     camera.position.set(0.5, 0.5, 1).setLength(14);
 
-    let renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    let renderer = new THREE.WebGLRenderer({ 
+      antialias: true, 
+      alpha: true,
+      powerPreference: 'high-performance'
+    });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setClearColor(0x000000, 0);
+    enhanceRenderer(renderer);
     container.appendChild(renderer.domElement);
 
     let labelRenderer = new CSS2DRenderer();
@@ -67,6 +73,9 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
     let globalUniforms = {
       time: { value: 0 }
     };
+
+    // Добавляем реалистичное освещение
+    setupLighting(scene);
 
     // Загружаем текстуру карты Земли
     let loader = new THREE.TextureLoader();
@@ -204,6 +213,14 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
 
     let globe = new THREE.Points(g, m);
     scene.add(globe);
+
+    // Добавляем звёздное небо
+    const stars = createStarField();
+    scene.add(stars);
+
+    // Добавляем атмосферу с glow эффектом
+    const atmosphere = createAtmosphere(rad, globalUniforms);
+    scene.add(atmosphere);
 
     // Markers - используем реальные катаклизмы
     let markerCount = CATACLYSMS_DATA.length; // 17 катаклизмов
@@ -588,6 +605,9 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
 
       let t = clock.getElapsedTime();
       globalUniforms.time.value = t;
+
+      // Медленное вращение звёзд для динамики
+      stars.rotation.y += 0.00005;
 
       controls.update();
       renderer.render(scene, camera);
