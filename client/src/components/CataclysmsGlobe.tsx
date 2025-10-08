@@ -19,8 +19,8 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
 
     const container = containerRef.current;
     
-    let scene = new THREE.Scene();
-    let camera = new THREE.PerspectiveCamera(
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(
       45,
       container.clientWidth / container.clientHeight,
       1,
@@ -28,7 +28,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
     );
     camera.position.set(0.5, 0.5, 1).setLength(14);
 
-    let renderer = new THREE.WebGLRenderer({ 
+    const renderer = new THREE.WebGLRenderer({ 
       antialias: true, 
       alpha: true,
       powerPreference: 'high-performance'
@@ -38,14 +38,14 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
     enhanceRenderer(renderer);
     container.appendChild(renderer.domElement);
 
-    let labelRenderer = new CSS2DRenderer();
+    const labelRenderer = new CSS2DRenderer();
     labelRenderer.setSize(container.clientWidth, container.clientHeight);
     labelRenderer.domElement.style.position = 'absolute';
     labelRenderer.domElement.style.top = '0px';
     labelRenderer.domElement.style.pointerEvents = 'none';
     container.appendChild(labelRenderer.domElement);
 
-    let controls = new OrbitControls(camera, renderer.domElement);
+    const controls = new OrbitControls(camera, renderer.domElement);
     controls.enablePan = false;
     controls.enableZoom = true;
     controls.minDistance = 6;
@@ -70,7 +70,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
       }, 3000);
     });
 
-    let globalUniforms = {
+    const globalUniforms = {
       time: { value: 0 }
     };
 
@@ -78,7 +78,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
     setupLighting(scene);
 
     // Загружаем текстуру карты Земли
-    let loader = new THREE.TextureLoader();
+    const loader = new THREE.TextureLoader();
     let earthTexture: THREE.Texture | null = null;
     
     loader.load(
@@ -95,23 +95,23 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
       }
     );
 
-    let counter = 200000;
-    let rad = 5;
+    const counter = 200000;
+    const rad = 5;
     let r = 0;
-    let dlong = Math.PI * (3 - Math.sqrt(5));
-    let dz = 2 / counter;
+    const dlong = Math.PI * (3 - Math.sqrt(5));
+    const dz = 2 / counter;
     let long = 0;
     let z = 1 - dz / 2;
 
-    let pts: THREE.Vector3[] = [];
-    let clr: number[] = [];
-    let c = new THREE.Color();
-    let uvs: number[] = [];
-    let sph = new THREE.Spherical();
+    const pts: THREE.Vector3[] = [];
+    const clr: number[] = [];
+    const c = new THREE.Color();
+    const uvs: number[] = [];
+    const sph = new THREE.Spherical();
 
     for (let i = 0; i < counter; i++) {
       r = Math.sqrt(1 - z * z);
-      let p = new THREE.Vector3(
+      const p = new THREE.Vector3(
         Math.cos(long) * r,
         z,
         -Math.sin(long) * r
@@ -151,7 +151,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
         const idx = (y * canvas.width + x) * 4;
         
         const r = imageData.data[idx];
-        const g = imageData.data[idx + 1];
+        const _g = imageData.data[idx + 1]; // green channel, reserved for future use
         const b = imageData.data[idx + 2];
         
         // Если точка тёмная (суша) - коричневый, светлая (вода) - синий
@@ -166,19 +166,20 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
         c.toArray(clr, i * 3);
       }
       
-      g.setAttribute('color', new THREE.Float32BufferAttribute(clr, 3));
+      globeGeometry.setAttribute('color', new THREE.Float32BufferAttribute(clr, 3));
     }
 
-    let g = new THREE.BufferGeometry().setFromPoints(pts);
-    g.setAttribute('color', new THREE.Float32BufferAttribute(clr, 3));
-    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    const globeGeometry = new THREE.BufferGeometry().setFromPoints(pts);
+    globeGeometry.setAttribute('color', new THREE.Float32BufferAttribute(clr, 3));
+    globeGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
 
-    let m = new THREE.PointsMaterial({
+    const globeMaterial = new THREE.PointsMaterial({
       size: 0.1,
       vertexColors: true
     });
 
-    (m as any).onBeforeCompile = (shader: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globeMaterial as any).onBeforeCompile = (shader: any) => {
       shader.vertexShader = `
         varying float vVisibility;
         varying vec3 vNormal;
@@ -211,7 +212,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
       );
     };
 
-    let globe = new THREE.Points(g, m);
+    const globe = new THREE.Points(globeGeometry, globeMaterial);
     scene.add(globe);
 
     // Добавляем звёздное небо
@@ -223,12 +224,13 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
     scene.add(atmosphere);
 
     // Markers - используем реальные катаклизмы
-    let markerCount = CATACLYSMS_DATA.length; // 17 катаклизмов
-    let gMarker = new THREE.PlaneGeometry();
-    let mMarker = new THREE.MeshBasicMaterial({
+    const markerCount = CATACLYSMS_DATA.length; // 17 катаклизмов
+    const gMarker = new THREE.PlaneGeometry();
+    const mMarker = new THREE.MeshBasicMaterial({
       color: 0xff2244
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (mMarker as any).onBeforeCompile = (shader: any) => {
       shader.uniforms.time = globalUniforms.time;
       shader.vertexShader = `
@@ -264,21 +266,22 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
         `
       );
     };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (mMarker as any).defines = { USE_UV: ' ' };
 
-    let markers = new THREE.InstancedMesh(gMarker, mMarker, markerCount);
-    let dummy = new THREE.Object3D();
-    let phase: number[] = [];
-    let markerInfo: Array<{ id: number; data: CataclysmData; crd: THREE.Vector3; uv: THREE.Vector2 }> = [];
+    const markers = new THREE.InstancedMesh(gMarker, mMarker, markerCount);
+    const dummy = new THREE.Object3D();
+    const phase: number[] = [];
+    const markerInfo: Array<{ id: number; data: CataclysmData; crd: THREE.Vector3; uv: THREE.Vector2 }> = [];
 
     function setMarker(id: number, cataclysm: CataclysmData) {
       const lat = cataclysm.location[0];
       const lon = cataclysm.location[1];
       
-      let phi = (90 - lat) * (Math.PI / 180);
-      let theta = (lon + 180) * (Math.PI / 180);
+      const phi = (90 - lat) * (Math.PI / 180);
+      const theta = (lon + 180) * (Math.PI / 180);
 
-      let pos = new THREE.Vector3().setFromSphericalCoords(rad, phi, theta);
+      const pos = new THREE.Vector3().setFromSphericalCoords(rad, phi, theta);
       markerInfo.push({ id, data: cataclysm, crd: pos, uv: new THREE.Vector2(lon, lat) });
 
       dummy.position.copy(pos);
@@ -302,7 +305,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
     scene.add(markers);
 
     // Popup window
-    let popupDiv = document.createElement('div');
+    const popupDiv = document.createElement('div');
     popupDiv.className = 'cataclysm-popup';
     popupDiv.style.display = 'none';
     popupDiv.style.visibility = 'hidden';
@@ -311,7 +314,7 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
     popupDiv.style.maxWidth = '400px';
     popupDiv.style.width = '400px';
     
-    let popup = new CSS2DObject(popupDiv);
+    const popup = new CSS2DObject(popupDiv);
     popup.position.set(0, -1000, 0); // Прячем далеко за пределы видимости
     scene.add(popup);
     
@@ -537,18 +540,12 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
       popupDiv.style.opacity = '1';
     }
     
-    function hidePopup() {
-      popupDiv.style.display = 'none';
-      popupDiv.style.visibility = 'hidden';
-      popupDiv.style.opacity = '0';
-    }
-
     // Raycasting
-    let raycaster = new THREE.Raycaster();
-    let mouse = new THREE.Vector2();
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
     let selectedId = -1;
 
-    function onClick(event: MouseEvent) {
+    function onClick() {
       if (selectedId !== -1) {
         const mi = markerInfo[selectedId];
         updatePopup(mi.data, mi.crd);
@@ -556,18 +553,18 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
     }
 
     function onPointerMove(event: PointerEvent) {
-      let rect = renderer.domElement.getBoundingClientRect();
+      const rect = renderer.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      let intersects = raycaster.intersectObject(markers);
+      const intersects = raycaster.intersectObject(markers);
 
       if (intersects.length > 0) {
-        let instanceId = intersects[0].instanceId!;
-        let uv = intersects[0].uv!;
+        const instanceId = intersects[0].instanceId!;
+        const uv = intersects[0].uv!;
 
-        let lUv = new THREE.Vector2(uv.x - 0.5, uv.y - 0.5).multiplyScalar(2);
+        const lUv = new THREE.Vector2(uv.x - 0.5, uv.y - 0.5).multiplyScalar(2);
         if (lUv.length() <= 0.5) {
           selectedId = instanceId;
           renderer.domElement.style.cursor = 'pointer';
@@ -584,8 +581,8 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
 
     // Resize
     function onResize() {
-      let width = container.clientWidth;
-      let height = container.clientHeight;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
 
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
@@ -598,12 +595,12 @@ export default function CataclysmsGlobe({ onMarkerClick }: CataclysmsGlobeProps)
 
     // Animation
     let animationId: number;
-    let clock = new THREE.Clock();
+    const clock = new THREE.Clock();
 
     function animate() {
       animationId = requestAnimationFrame(animate);
 
-      let t = clock.getElapsedTime();
+      const t = clock.getElapsedTime();
       globalUniforms.time.value = t;
 
       // Медленное вращение звёзд для динамики

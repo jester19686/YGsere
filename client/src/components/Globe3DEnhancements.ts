@@ -52,7 +52,7 @@ export function createStarField(): THREE.Points {
 }
 
 // Функция создания атмосферы с glow эффектом
-export function createAtmosphere(radius: number, globalUniforms: any): THREE.Mesh {
+export function createAtmosphere(radius: number, globalUniforms: { time: { value: number } }): THREE.Mesh {
   const atmosphereGeometry = new THREE.SphereGeometry(radius * 1.15, 64, 64);
   const atmosphereMaterial = new THREE.ShaderMaterial({
     transparent: true,
